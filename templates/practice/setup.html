@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Setup Latihan — SpeakUp{% endblock %}
+{% block content %}
+
+<div class="page-container narrow">
+    <div class="setup-card">
+        <div class="setup-header" style="border-color: {{ category.color }}">
+            <div class="setup-icon">{{ category.icon }}</div>
+            <h1>{{ category.name }}</h1>
+            <p>{{ category.description }}</p>
+        </div>
+
+        <div class="tips-box">
+            <h3>💡 Tips untuk {{ category.name }}</h3>
+            <ul>
+                {% for tip in category.tips %}
+                <li>{{ tip }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <form method="POST" class="setup-form">
+            <input type="hidden" name="category" value="{{ category.id }}">
+            <div class="form-group">
+                <label>📝 Judul / Topik Latihan</label>
+                <input type="text" name="title" placeholder="Contoh: Pentingnya Pendidikan di Era Digital" required maxlength="200">
+                <span class="form-hint">Judul ini akan digunakan AI untuk menilai relevansi isi pidatomu</span>
+            </div>
+            <button type="submit" class="btn-primary btn-full">Lanjut ke Rekaman 🎤</button>
+        </form>
+
+        <div class="setup-back">
+            <a href="{{ url_for('practice.select_category') }}">← Ganti Kategori</a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

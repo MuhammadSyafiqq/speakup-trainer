@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — SpeakUp{% endblock %}
+{% block content %}
+
+<div class="page-container">
+    <!-- Header -->
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Halo, {{ current_user.username }}! 👋</h1>
+            <p class="page-subtitle">Siap berlatih public speaking hari ini?</p>
+        </div>
+        <a href="{{ url_for('practice.select_category') }}" class="btn-primary">+ Latihan Baru</a>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-card-icon">🎯</div>
+            <div class="stat-card-info">
+                <div class="stat-card-num">{{ total_sessions }}</div>
+                <div class="stat-card-label">Total Sesi Latihan</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon">⭐</div>
+            <div class="stat-card-info">
+                <div class="stat-card-num">{{ avg_score }}</div>
+                <div class="stat-card-label">Rata-rata Skor</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon">🏆</div>
+            <div class="stat-card-info">
+                <div class="stat-card-num">
+                    {% if avg_score >= 80 %}A
+                    {% elif avg_score >= 70 %}B
+                    {% elif avg_score >= 60 %}C
+                    {% elif avg_score >= 50 %}D
+                    {% else %}E{% endif %}
+                </div>
+                <div class="stat-card-label">Grade Rata-rata</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon">🔥</div>
+            <div class="stat-card-info">
+                <div class="stat-card-num">{{ recent_sessions|length }}</div>
+                <div class="stat-card-label">Sesi Minggu Ini</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kategori Latihan -->
+    <div class="section">
+        <h2 class="section-heading">Mulai Latihan</h2>
+        <div class="category-grid">
+            {% for cat in categories %}
+            <a href="{{ url_for('practice.setup_practice', category=cat.id) }}" class="category-card" style="--cat-color: {{ cat.color }}">
+                <div class="cat-icon">{{ cat.icon }}</div>
+                <div class="cat-name">{{ cat.name }}</div>
+                <div class="cat-desc">{{ cat.description }}</div>
+                <div class="cat-arrow">→</div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Latihan Terbaru -->
+    {% if recent_sessions %}
+    <div class="section">
+        <div class="section-header">
+            <h2 class="section-heading">Latihan Terbaru</h2>
+            <a href="{{ url_for('history.history') }}" class="link-more">Lihat Semua →</a>
+        </div>
+        <div class="sessions-list">
+            {% for s in recent_sessions %}
+            <div class="session-item">
+                <div class="session-info">
+                    <div class="session-title">{{ s.title }}</div>
+                    <div class="session-meta">
+                        <span class="badge-category">{{ s.category }}</span>
+                        <span class="session-date">{{ s.created_at.strftime('%d %b %Y') }}</span>
+                    </div>
+                </div>
+                <div class="session-score">
+                    <div class="score-circle {% if s.score_total >= 80 %}score-high{% elif s.score_total >= 60 %}score-mid{% else %}score-low{% endif %}">
+                        {{ s.score_total|int }}
+                    </div>
+                </div>
+                <a href="{{ url_for('practice.result', session_id=s.id) }}" class="btn-sm">Lihat</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">🎤</div>
+        <h3>Belum ada latihan</h3>
+        <p>Mulai latihan pertamamu sekarang dan lihat bagaimana AI menganalisis kemampuanmu!</p>
+        <a href="{{ url_for('practice.select_category') }}" class="btn-primary">Mulai Latihan Pertama</a>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

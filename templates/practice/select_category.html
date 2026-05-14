@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Pilih Kategori — SpeakUp{% endblock %}
+{% block content %}
+
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Pilih Kategori Latihan 🎯</h1>
+            <p class="page-subtitle">Pilih jenis public speaking yang ingin kamu latih</p>
+        </div>
+    </div>
+
+    <div class="category-grid-large">
+        {% for cat in categories %}
+        <a href="{{ url_for('practice.setup_practice', category=cat.id) }}" class="category-card-large" style="--cat-color: {{ cat.color }}">
+            <div class="cat-l-icon">{{ cat.icon }}</div>
+            <div class="cat-l-content">
+                <h3 class="cat-l-name">{{ cat.name }}</h3>
+                <p class="cat-l-desc">{{ cat.description }}</p>
+                <ul class="cat-tips">
+                    {% for tip in cat.tips %}
+                    <li>✓ {{ tip }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="cat-l-cta">Pilih →</div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}

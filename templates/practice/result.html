@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block title %}Hasil Analisis — SpeakUp{% endblock %}
+
+{% block content %}
+<div class="page-container">
+
+    <!-- Header Result -->
+    <div class="result-header">
+        <div class="result-meta">
+            <span class="badge-category">{{ session.category }}</span>
+            <span class="result-date">{{ session.created_at.strftime('%d %B %Y, %H:%M') }}</span>
+        </div>
+        <h1 class="result-title">"{{ session.title }}"</h1>
+    </div>
+
+    <!-- Skor Utama -->
+    {% set grade, grade_text = session.get_grade() %}
+    <div class="result-score-hero">
+        <div class="score-main-circle grade-{{ grade }}">
+            <div class="score-num">{{ session.score_total|int }}</div>
+            <div class="score-label">/ 100</div>
+        </div>
+        <div class="score-hero-info">
+            <div class="grade-badge grade-{{ grade }}">Grade {{ grade }}</div>
+            <div class="grade-text">{{ grade_text }}</div>
+            {% if session.duration_seconds > 0 %}
+            <div class="duration-info">⏱️ Durasi: {{ (session.duration_seconds // 60)|int }}m {{ (session.duration_seconds % 60)|int }}s</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Skor per Aspek -->
+    <div class="result-grid">
+        <div class="result-card aspects-card">
+            <h2>📊 Skor per Aspek</h2>
+            <div class="aspect-list">
+                {% set aspects = [
+                    ('Kejelasan Bahasa', session.score_clarity, '🗣️'),
+                    ('Struktur Pidato', session.score_structure, '📋'),
+                    ('Kepercayaan Diri', session.score_confidence, '💪'),
+                    ('Relevansi Topik', session.score_relevance, '🎯'),
+                    ('Kosakata & Diksi', session.score_vocabulary, '📚'),
+                    ('Kelancaran Bicara', session.score_fluency, '🌊'),
+                ] %}
+                {% for label, score, icon in aspects %}
+                <div class="aspect-item">
+                    <div class="aspect-label">
+                        <span>{{ icon }} {{ label }}</span>
+                        <span class="aspect-score">{{ score|int }}/100</span>
+                    </div>
+                    <div class="aspect-bar">
+                        <div class="aspect-fill {% if score >= 80 %}fill-high{% elif score >= 60 %}fill-mid{% else %}fill-low{% endif %}"
+                             style="width: {{ score }}%"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Radar Chart -->
+        <div class="result-card chart-card">
+            <h2>📈 Radar Kemampuan</h2>
+            <canvas id="radarChart" width="300" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- Kelebihan & Kekurangan -->
+    <div class="feedback-grid">
+        <div class="result-card strengths-card">
+            <h2>✅ Kelebihan</h2>
+            <p>{{ session.strengths or 'Analisis sedang diproses...' }}</p>
+        </div>
+        <div class="result-card weaknesses-card">
+            <h2>⚠️ Kekurangan</h2>
+            <p>{{ session.weaknesses or 'Analisis sedang diproses...' }}</p>
+        </div>
+    </div>
+
+    <!-- Saran -->
+    <div class="result-card suggestions-card">
+        <h2>💡 Saran Perbaikan</h2>
+        <div class="suggestions-content">
+            {{ session.suggestions|replace('\n', '<br>')|safe if session.suggestions else 'Terus berlatih dan tingkatkan kemampuanmu!' }}
+        </div>
+    </div>
+
+    <!-- Feedback Detail per Aspek -->
+    {% set feedback = session.get_feedback() %}
+    {% if feedback %}
+    <div class="result-card">
+        <h2>🔍 Feedback Detail</h2>
+        <div class="feedback-details">
+            {% set feedback_items = [
+                ('Kejelasan Bahasa', feedback.get('clarity', ''), '🗣️'),
+                ('Struktur Pidato', feedback.get('structure', ''), '📋'),
+                ('Kepercayaan Diri', feedback.get('confidence', ''), '💪'),
+                ('Relevansi Topik', feedback.get('relevance', ''), '🎯'),
+                ('Kosakata & Diksi', feedback.get('vocabulary', ''), '📚'),
+                ('Kelancaran Bicara', feedback.get('fluency', ''), '🌊'),
+            ] %}
+            {% for label, text, icon in feedback_items %}
+            {% if text %}
+            <div class="feedback-detail-item">
+                <div class="feedback-detail-label">{{ icon }} {{ label }}</div>
+                <div class="feedback-detail-text">{{ text }}</div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Transkrip -->
+    {% if session.transcript %}
+    <div class="result-card transcript-card">
+        <h2>📝 Hasil Transkripsi</h2>
+        <div class="transcript-box">{{ session.transcript }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Aksi -->
+    <div class="result-actions">
+        <a href="{{ url_for('practice.select_category') }}" class="btn-primary">🎤 Latihan Lagi</a>
+        <a href="{{ url_for('history.history') }}" class="btn-secondary">📋 Lihat Riwayat</a>
+        <a href="{{ url_for('practice.dashboard') }}" class="btn-outline">🏠 Dashboard</a>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const ctx = document.getElementById('radarChart').getContext('2d');
+new Chart(ctx, {
+    type: 'radar',
+    data: {
+        labels: ['Kejelasan', 'Struktur', 'Kepercayaan Diri', 'Relevansi', 'Kosakata', 'Kelancaran'],
+        datasets: [{
+            label: 'Skor Kamu',
+            data: [
+                {{ session.score_clarity|int }},
+                {{ session.score_structure|int }},
+                {{ session.score_confidence|int }},
+                {{ session.score_relevance|int }},
+                {{ session.score_vocabulary|int }},
+                {{ session.score_fluency|int }}
+            ],
+            backgroundColor: 'rgba(79, 70, 229, 0.2)',
+            borderColor: 'rgba(79, 70, 229, 0.8)',
+            borderWidth: 2,
+            pointBackgroundColor: 'rgba(79, 70, 229, 1)',
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            r: {
+                min: 0, max: 100,
+                ticks: { stepSize: 20, font: { size: 10 } },
+                grid: { color: 'rgba(0,0,0,0.1)' }
+            }
+        },
+        plugins: { legend: { display: false } }
+    }
+});
+</script>
+{% endblock %}

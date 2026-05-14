@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}SpeakUp - Latih Public Speaking dengan AI{% endblock %}
+{% block content %}
+
+<section class="hero">
+    <div class="hero-bg">
+        <div class="hero-circle c1"></div>
+        <div class="hero-circle c2"></div>
+        <div class="hero-circle c3"></div>
+    </div>
+    <div class="hero-content">
+        <div class="hero-badge">✨ Didukung Teknologi AI</div>
+        <h1 class="hero-title">
+            Latih <span class="text-gradient">Public Speaking</span><br>
+            Kamu Jadi Lebih Percaya Diri
+        </h1>
+        <p class="hero-desc">
+            Rekam suaramu, dapatkan analisis mendalam dari AI, dan pantau perkembanganmu.
+            Dari pidato hingga wawancara kerja — semua bisa dilatih di sini.
+        </p>
+        <div class="hero-actions">
+            <a href="{{ url_for('auth.register') }}" class="btn-hero-primary">Mulai Gratis 🚀</a>
+            <a href="{{ url_for('auth.login') }}" class="btn-hero-secondary">Sudah Punya Akun</a>
+        </div>
+        <div class="hero-stats">
+            <div class="stat-item"><span class="stat-num">6+</span><span class="stat-label">Kategori Latihan</span></div>
+            <div class="stat-divider"></div>
+            <div class="stat-item"><span class="stat-num">AI</span><span class="stat-label">Analisis Otomatis</span></div>
+            <div class="stat-divider"></div>
+            <div class="stat-item"><span class="stat-num">100%</span><span class="stat-label">Gratis Digunakan</span></div>
+        </div>
+    </div>
+</section>
+
+<section class="features">
+    <div class="container">
+        <h2 class="section-title">Cara Kerja SpeakUp</h2>
+        <div class="steps-grid">
+            <div class="step-card">
+                <div class="step-num">01</div>
+                <div class="step-icon">🎯</div>
+                <h3>Pilih Kategori</h3>
+                <p>Pilih jenis latihan: pidato, wawancara, presentasi, debat, MC, atau storytelling</p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">02</div>
+                <div class="step-icon">📝</div>
+                <h3>Tentukan Topik</h3>
+                <p>Masukkan judul atau topik yang akan kamu sampaikan sebagai acuan analisis</p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">03</div>
+                <div class="step-icon">🎤</div>
+                <h3>Rekam Suara</h3>
+                <p>Gunakan mikrofon untuk merekam latihan public speaking kamu langsung di browser</p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">04</div>
+                <div class="step-icon">🤖</div>
+                <h3>Analisis AI</h3>
+                <p>AI mengubah suara ke teks, lalu menganalisis 6 aspek public speaking secara mendalam</p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">05</div>
+                <div class="step-icon">📊</div>
+                <h3>Lihat Hasil</h3>
+                <p>Dapatkan skor, feedback konstruktif, dan saran spesifik untuk meningkatkan kemampuan</p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">06</div>
+                <div class="step-icon">📈</div>
+                <h3>Pantau Progress</h3>
+                <p>Lihat grafik perkembangan skor dari waktu ke waktu untuk motivasi belajar</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="cta-section">
+    <div class="container">
+        <div class="cta-box">
+            <h2>Siap Meningkatkan Kemampuan Bicara Kamu? 🚀</h2>
+            <p>Bergabung dan mulai latihan public speaking dengan bantuan AI sekarang</p>
+            <a href="{{ url_for('auth.register') }}" class="btn-hero-primary">Daftar Sekarang — Gratis!</a>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

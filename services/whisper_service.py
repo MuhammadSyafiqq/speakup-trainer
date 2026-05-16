@@ -5,7 +5,7 @@ import tempfile
 
 # Load model Whisper (gunakan 'base' untuk ringan, 'medium' untuk lebih akurat)
 # Pilihan: tiny, base, small, medium, large
-MODEL_SIZE = os.getenv('WHISPER_MODEL', 'large')
+MODEL_SIZE = os.getenv('WHISPER_MODEL', 'medium')
 
 _model = None
 

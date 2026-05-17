@@ -2,11 +2,11 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from models.session import PracticeSession
 from extensions import db
-from services.whisper_service import transcribe_audio
-from services.analysis_service import analyze_speech
+from services.gemini_service import analyze_audio_with_gemini
 import os
 import uuid
 from datetime import datetime
+import json
 
 practice_bp = Blueprint('practice', __name__)
 
@@ -172,47 +172,72 @@ def upload_audio():
 @practice_bp.route('/practice/process/<int:session_id>', methods=['POST'])
 @login_required
 def process_session(session_id):
-    """Proses transkripsi dan analisis AI"""
+    """Proses analisis audio langsung dengan Gemini 1.5 Flash"""
     session = PracticeSession.query.get_or_404(session_id)
 
     if session.user_id != current_user.id:
         return jsonify({'success': False, 'error': 'Akses ditolak'}), 403
 
     try:
-        # Step 1: Transkripsi dengan Whisper
-        print(f"🎙️ Memulai transkripsi sesi {session_id}...")
-        transcript = transcribe_audio(session.audio_path)
+        print(f"🤖 Memulai analisis Gemini untuk sesi {session_id}...")
+        print(f"   Judul    : {session.title}")
+        print(f"   Kategori : {session.category}")
 
-        if not transcript or transcript.strip() == '':
-            session.status = 'error'
-            db.session.commit()
-            return jsonify({'success': False, 'error': 'Transkripsi gagal - audio mungkin tidak jelas'}), 500
-
-        session.transcript = transcript
-        db.session.commit()
-        print(f"✅ Transkripsi selesai: {transcript[:100]}...")
-
-        # Step 2: Analisis dengan AI
-        print(f"🤖 Memulai analisis AI...")
-        analysis = analyze_speech(
-            transcript=transcript,
+        # Satu fungsi untuk transkripsi + analisis sekaligus
+        result = analyze_audio_with_gemini(
+            audio_path=session.audio_path,
             title=session.title,
             category=session.category
         )
 
-        # Step 3: Simpan hasil analisis
-        session.score_clarity = analysis.get('score_clarity', 0)
-        session.score_structure = analysis.get('score_structure', 0)
-        session.score_confidence = analysis.get('score_confidence', 0)
-        session.score_relevance = analysis.get('score_relevance', 0)
-        session.score_vocabulary = analysis.get('score_vocabulary', 0)
-        session.score_fluency = analysis.get('score_fluency', 0)
+        # Simpan transkripsi (versi bersih untuk ditampilkan)
+        session.transcript = result.get('transcript_bersih', '')
+
+        # Simpan skor per aspek
+        session.score_clarity    = result.get('score_clarity', 0)
+        session.score_structure  = result.get('score_structure', 0)
+        session.score_confidence = result.get('score_confidence', 0)
+        session.score_relevance  = result.get('score_relevance', 0)
+        session.score_vocabulary = result.get('score_vocabulary', 0)
+        session.score_fluency    = result.get('score_fluency', 0)
         session.calculate_total_score()
 
-        session.suggestions = analysis.get('suggestions', '')
-        session.strengths = analysis.get('strengths', '')
-        session.weaknesses = analysis.get('weaknesses', '')
-        session.set_feedback(analysis.get('feedback_detail', {}))
+        def safe_text(value):
+            if isinstance(value, (list, dict)):
+                return json.dumps(value, ensure_ascii=False)
+            return str(value) if value is not None else ''
+
+
+        # ============================================
+        # Simpan feedback
+        # ============================================
+        session.strengths = safe_text(result.get('strengths', ''))
+        session.weaknesses = safe_text(result.get('weaknesses', ''))
+
+        session.suggestions = safe_text(
+            result.get('suggestions', [])
+        )
+
+        # Simpan semua detail ke feedback_json
+        # termasuk transcript_detail dan audio_analysis
+        feedback_detail = result.get('feedback_detail', {})
+
+        if not isinstance(feedback_detail, dict):
+            feedback_detail = {}
+
+        audio_analysis = result.get('audio_analysis', {})
+
+        if not isinstance(audio_analysis, dict):
+            audio_analysis = {}
+
+        feedback_data = {
+            **feedback_detail,
+            'transcript_detail': safe_text(
+                result.get('transcript_detail', '')
+            ),
+            'audio_analysis': audio_analysis,
+        }
+        session.set_feedback(feedback_data)
         session.status = 'completed'
 
         db.session.commit()

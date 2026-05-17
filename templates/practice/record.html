@@ -1,121 +1,126 @@
-{% extends 'base.html' %}
-{% block title %}Rekam Latihan — SpeakUp{% endblock %}
-
+{% extends 'base.html' %} {% block title %}Rekam Latihan — SpeakUp{% endblock %}
 {% block content %}
 <div class="page-container narrow">
-    <div class="record-card">
-
-        <!-- Header Info -->
-        <div class="record-header">
-            <div class="record-badge" style="background: {{ category.color }}20; color: {{ category.color }}">
-                {{ category.icon }} {{ category.name }}
-            </div>
-            <h1 class="record-title">"{{ title }}"</h1>
-            <p class="record-subtitle">Tekan tombol rekam saat siap, dan mulai berbicara!</p>
-        </div>
-
-        <!-- Tips Singkat -->
-        <div class="tips-mini">
-            {% for tip in category.tips %}
-            <span class="tip-tag">✓ {{ tip }}</span>
-            {% endfor %}
-        </div>
-
-        <!-- Timer Display -->
-        <div class="timer-display">
-            <div class="timer-circle">
-                <span id="timer-text">00:00</span>
-            </div>
-            <div id="status-text" class="status-idle">Siap untuk merekam</div>
-        </div>
-
-        <!-- Audio Visualizer -->
-        <div class="visualizer-container">
-            <canvas id="audio-visualizer" width="500" height="80"></canvas>
-        </div>
-
-        <!-- Control Buttons -->
-        <div class="record-controls">
-            <button id="btn-record" class="btn-record" onclick="startRecording()">
-                <span class="rec-icon">🔴</span>
-                <span class="rec-text">Mulai Rekam</span>
-            </button>
-            <button id="btn-stop" class="btn-stop" onclick="stopRecording()" disabled>
-                <span class="rec-icon">⬛</span>
-                <span class="rec-text">Stop</span>
-            </button>
-        </div>
-
-        <!-- Audio Playback -->
-        <div id="playback-section" class="playback-section" style="display:none">
-            <h3>🎧 Dengarkan Hasil Rekaman</h3>
-            <audio id="audio-playback" controls></audio>
-            <div class="playback-actions">
-                <button onclick="resetRecording()" class="btn-secondary">Rekam Ulang 🔄</button>
-                <button onclick="submitAudio()" class="btn-primary" id="btn-submit">
-                    Kirim & Analisis 🚀
-                </button>
-            </div>
-        </div>
-
-        <!-- Processing State -->
-        <div id="processing-section" class="processing-section" style="display:none">
-            <div class="processing-animation">
-                <div class="proc-spinner"></div>
-            </div>
-            <h3 id="proc-title">Mengupload audio...</h3>
-            <p id="proc-desc">Harap tunggu, proses ini membutuhkan beberapa saat</p>
-            <div class="proc-steps">
-                <div class="proc-step" id="step-upload">
-                    <span class="step-icon">📤</span>
-                    <span>Upload Audio</span>
-                    <span class="step-status" id="status-upload">⏳</span>
-                </div>
-                <div class="proc-step" id="step-transcribe">
-                    <span class="step-icon">📝</span>
-                    <span>Transkripsi (Whisper AI)</span>
-                    <span class="step-status" id="status-transcribe">⏳</span>
-                </div>
-                <div class="proc-step" id="step-analyze">
-                    <span class="step-icon">🤖</span>
-                    <span>Analisis Public Speaking</span>
-                    <span class="step-status" id="status-analyze">⏳</span>
-                </div>
-            </div>
-        </div>
-
+  <div class="record-card">
+    <!-- Header Info -->
+    <div class="record-header">
+      <div
+        class="record-badge"
+        style="background: {{ category.color }}20; color: {{ category.color }}"
+      >
+        {{ category.icon }} {{ category.name }}
+      </div>
+      <h1 class="record-title">"{{ title }}"</h1>
+      <p class="record-subtitle">
+        Tekan tombol rekam saat siap, dan mulai berbicara!
+      </p>
     </div>
+
+    <!-- Tips Singkat -->
+    <div class="tips-mini">
+      {% for tip in category.tips %}
+      <span class="tip-tag">✓ {{ tip }}</span>
+      {% endfor %}
+    </div>
+
+    <!-- Timer Display -->
+    <div class="timer-display">
+      <div class="timer-circle">
+        <span id="timer-text">00:00</span>
+      </div>
+      <div id="status-text" class="status-idle">Siap untuk merekam</div>
+    </div>
+
+    <!-- Audio Visualizer -->
+    <div class="visualizer-container">
+      <canvas id="audio-visualizer" width="500" height="80"></canvas>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="record-controls">
+      <button id="btn-record" class="btn-record" onclick="startRecording()">
+        <span class="rec-icon">🔴</span>
+        <span class="rec-text">Mulai Rekam</span>
+      </button>
+      <button id="btn-stop" class="btn-stop" onclick="stopRecording()" disabled>
+        <span class="rec-icon">⬛</span>
+        <span class="rec-text">Stop</span>
+      </button>
+    </div>
+
+    <!-- Audio Playback -->
+    <div id="playback-section" class="playback-section" style="display: none">
+      <h3>🎧 Dengarkan Hasil Rekaman</h3>
+      <audio id="audio-playback" controls></audio>
+      <div class="playback-actions">
+        <button onclick="resetRecording()" class="btn-secondary">
+          Rekam Ulang 🔄
+        </button>
+        <button onclick="submitAudio()" class="btn-primary" id="btn-submit">
+          Kirim & Analisis 🚀
+        </button>
+      </div>
+    </div>
+
+    <!-- Processing State -->
+    <div
+      id="processing-section"
+      class="processing-section"
+      style="display: none"
+    >
+      <div class="processing-animation">
+        <div class="proc-spinner"></div>
+      </div>
+      <h3 id="proc-title">Mengupload audio...</h3>
+      <p id="proc-desc">Harap tunggu, proses ini membutuhkan beberapa saat</p>
+      <div class="proc-steps">
+        <div class="proc-step" id="step-upload">
+          <span class="step-icon">📤</span>
+          <span>Upload Audio</span>
+          <span class="step-status" id="status-upload">⏳</span>
+        </div>
+        <div class="proc-step" id="step-gemini">
+          <span class="step-icon">🤖</span>
+          <span>Gemini AI — Transkripsi + Analisis Audio</span>
+          <span class="step-status" id="status-gemini">⏳</span>
+        </div>
+        <div class="proc-step" id="step-save">
+          <span class="step-icon">💾</span>
+          <span>Menyimpan Hasil</span>
+          <span class="step-status" id="status-save">⏳</span>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script>
-// =========================================
-// VARIABEL GLOBAL
-// =========================================
-let mediaRecorder = null;
-let audioChunks = [];
-let audioBlob = null;
-let recordingStartTime = null;
-let timerInterval = null;
-let sessionId = null;
-let analyzerNode = null;
-let animationId = null;
-let audioStream = null;
+  // =========================================
+  // VARIABEL GLOBAL
+  // =========================================
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let audioBlob = null;
+  let recordingStartTime = null;
+  let timerInterval = null;
+  let sessionId = null;
+  let analyzerNode = null;
+  let animationId = null;
+  let audioStream = null;
 
-const CATEGORY = "{{ category.id }}";
-const TITLE = "{{ title }}";
-const UPLOAD_URL = "{{ url_for('practice.upload_audio') }}";
-const PROCESS_URL_BASE = "/practice/process/";
-const STATUS_URL_BASE = "/practice/status/";
-const RESULT_URL_BASE = "/practice/result/";
+  const CATEGORY = "{{ category.id }}";
+  const TITLE = "{{ title }}";
+  const UPLOAD_URL = "{{ url_for('practice.upload_audio') }}";
+  const PROCESS_URL_BASE = "/practice/process/";
+  const STATUS_URL_BASE = "/practice/status/";
+  const RESULT_URL_BASE = "/practice/result/";
 
-// =========================================
-// INISIALISASI VISUALIZER
-// =========================================
-function setupVisualizer(stream) {
-    const canvas = document.getElementById('audio-visualizer');
-    const ctx = canvas.getContext('2d');
+  // =========================================
+  // INISIALISASI VISUALIZER
+  // =========================================
+  function setupVisualizer(stream) {
+    const canvas = document.getElementById("audio-visualizer");
+    const ctx = canvas.getContext("2d");
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioCtx.createMediaStreamSource(stream);
     analyzerNode = audioCtx.createAnalyser();
@@ -126,191 +131,207 @@ function setupVisualizer(stream) {
     const dataArray = new Uint8Array(bufferLength);
 
     function draw() {
-        animationId = requestAnimationFrame(draw);
-        analyzerNode.getByteFrequencyData(dataArray);
+      animationId = requestAnimationFrame(draw);
+      analyzerNode.getByteFrequencyData(dataArray);
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        const barWidth = (canvas.width / bufferLength) * 2.5;
-        let x = 0;
-        for (let i = 0; i < bufferLength; i++) {
-            const barHeight = (dataArray[i] / 255) * canvas.height;
-            const hue = (i / bufferLength) * 220 + 200;
-            ctx.fillStyle = `hsla(${hue}, 80%, 60%, 0.8)`;
-            ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-            x += barWidth + 1;
-        }
+      const barWidth = (canvas.width / bufferLength) * 2.5;
+      let x = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = (dataArray[i] / 255) * canvas.height;
+        const hue = (i / bufferLength) * 220 + 200;
+        ctx.fillStyle = `hsla(${hue}, 80%, 60%, 0.8)`;
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+        x += barWidth + 1;
+      }
     }
     draw();
-}
+  }
 
-// =========================================
-// MULAI REKAM
-// =========================================
-async function startRecording() {
+  // =========================================
+  // MULAI REKAM
+  // =========================================
+  async function startRecording() {
     try {
-        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        setupVisualizer(audioStream);
+      audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: false,
+      });
+      setupVisualizer(audioStream);
 
-        mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
-        audioChunks = [];
+      mediaRecorder = new MediaRecorder(audioStream, {
+        mimeType: "audio/webm",
+      });
+      audioChunks = [];
 
-        mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) audioChunks.push(e.data);
-        };
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
 
-        mediaRecorder.onstop = () => {
-            audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            const url = URL.createObjectURL(audioBlob);
-            document.getElementById('audio-playback').src = url;
-            document.getElementById('playback-section').style.display = 'block';
-            if (animationId) cancelAnimationFrame(animationId);
-        };
+      mediaRecorder.onstop = () => {
+        audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+        const url = URL.createObjectURL(audioBlob);
+        document.getElementById("audio-playback").src = url;
+        document.getElementById("playback-section").style.display = "block";
+        if (animationId) cancelAnimationFrame(animationId);
+      };
 
-        mediaRecorder.start(1000);
-        recordingStartTime = Date.now();
-        startTimer();
+      mediaRecorder.start(1000);
+      recordingStartTime = Date.now();
+      startTimer();
 
-        document.getElementById('btn-record').disabled = true;
-        document.getElementById('btn-stop').disabled = false;
-        document.getElementById('status-text').textContent = '🔴 Sedang merekam...';
-        document.getElementById('status-text').className = 'status-recording';
-
+      document.getElementById("btn-record").disabled = true;
+      document.getElementById("btn-stop").disabled = false;
+      document.getElementById("status-text").textContent =
+        "🔴 Sedang merekam...";
+      document.getElementById("status-text").className = "status-recording";
     } catch (err) {
-        alert('❌ Gagal akses mikrofon: ' + err.message + '\n\nPastikan browser kamu mengizinkan akses mikrofon.');
-        console.error(err);
+      alert(
+        "❌ Gagal akses mikrofon: " +
+          err.message +
+          "\n\nPastikan browser kamu mengizinkan akses mikrofon.",
+      );
+      console.error(err);
     }
-}
+  }
 
-// =========================================
-// STOP REKAM
-// =========================================
-function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-        audioStream.getTracks().forEach(track => track.stop());
-        clearInterval(timerInterval);
-        document.getElementById('btn-record').disabled = false;
-        document.getElementById('btn-stop').disabled = true;
-        document.getElementById('status-text').textContent = '✅ Rekaman selesai!';
-        document.getElementById('status-text').className = 'status-done';
+  // =========================================
+  // STOP REKAM
+  // =========================================
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      audioStream.getTracks().forEach((track) => track.stop());
+      clearInterval(timerInterval);
+      document.getElementById("btn-record").disabled = false;
+      document.getElementById("btn-stop").disabled = true;
+      document.getElementById("status-text").textContent =
+        "✅ Rekaman selesai!";
+      document.getElementById("status-text").className = "status-done";
     }
-}
+  }
 
-// =========================================
-// RESET
-// =========================================
-function resetRecording() {
+  // =========================================
+  // RESET
+  // =========================================
+  function resetRecording() {
     audioChunks = [];
     audioBlob = null;
     sessionId = null;
-    document.getElementById('audio-playback').src = '';
-    document.getElementById('playback-section').style.display = 'none';
-    document.getElementById('timer-text').textContent = '00:00';
-    document.getElementById('status-text').textContent = 'Siap untuk merekam';
-    document.getElementById('status-text').className = 'status-idle';
+    document.getElementById("audio-playback").src = "";
+    document.getElementById("playback-section").style.display = "none";
+    document.getElementById("timer-text").textContent = "00:00";
+    document.getElementById("status-text").textContent = "Siap untuk merekam";
+    document.getElementById("status-text").className = "status-idle";
 
-    const canvas = document.getElementById('audio-visualizer');
-    const ctx = canvas.getContext('2d');
+    const canvas = document.getElementById("audio-visualizer");
+    const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
+  }
 
-// =========================================
-// TIMER
-// =========================================
-function startTimer() {
+  // =========================================
+  // TIMER
+  // =========================================
+  function startTimer() {
     timerInterval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
-        const min = String(Math.floor(elapsed / 60)).padStart(2, '0');
-        const sec = String(elapsed % 60).padStart(2, '0');
-        document.getElementById('timer-text').textContent = `${min}:${sec}`;
+      const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+      const min = String(Math.floor(elapsed / 60)).padStart(2, "0");
+      const sec = String(elapsed % 60).padStart(2, "0");
+      document.getElementById("timer-text").textContent = `${min}:${sec}`;
     }, 1000);
-}
+  }
 
-// =========================================
-// SUBMIT & PROSES
-// =========================================
-async function submitAudio() {
+  // =========================================
+  // SUBMIT & PROSES
+  // =========================================
+  async function submitAudio() {
     if (!audioBlob) {
-        alert('Belum ada rekaman!');
-        return;
+      alert("Belum ada rekaman!");
+      return;
     }
 
     const duration = Math.floor((Date.now() - recordingStartTime) / 1000);
 
     // Tampilkan section processing
-    document.getElementById('playback-section').style.display = 'none';
-    document.getElementById('processing-section').style.display = 'block';
+    document.getElementById("playback-section").style.display = "none";
+    document.getElementById("processing-section").style.display = "block";
 
     // Step 1: Upload
-    updateStep('upload', 'loading', '⏳');
-    updateProc('Mengupload audio...', 'Harap tunggu...');
+    updateStep("upload", "loading", "⏳");
+    updateProc("Mengupload audio...", "Harap tunggu...");
 
     try {
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'recording.webm');
-        formData.append('category', CATEGORY);
-        formData.append('title', TITLE);
-        formData.append('duration', duration);
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.webm");
+      formData.append("category", CATEGORY);
+      formData.append("title", TITLE);
+      formData.append("duration", duration);
 
-        const uploadRes = await fetch(UPLOAD_URL, {
-            method: 'POST',
-            body: formData
-        });
+      const uploadRes = await fetch(UPLOAD_URL, {
+        method: "POST",
+        body: formData,
+      });
 
-        const uploadData = await uploadRes.json();
+      const uploadData = await uploadRes.json();
 
-        if (!uploadData.success) {
-            throw new Error(uploadData.error || 'Upload gagal');
-        }
+      if (!uploadData.success) {
+        throw new Error(uploadData.error || "Upload gagal");
+      }
 
-        sessionId = uploadData.session_id;
-        updateStep('upload', 'done', '✅');
+      sessionId = uploadData.session_id;
+      updateStep("upload", "done", "✅");
 
-        // Step 2: Transkripsi & Analisis
-        updateStep('transcribe', 'loading', '⏳');
-        updateStep('analyze', 'loading', '⏳');
-        updateProc('Menganalisis dengan AI...', 'Whisper sedang mengubah suara ke teks, lalu AI menganalisis...');
+      // Step 2: Gemini analisis (transkripsi + analisis sekaligus)
+      updateStep("gemini", "loading", "⏳");
+      updateProc(
+        "🤖 Gemini sedang mendengarkan audiomu...",
+        "Gemini 1.5 Flash menganalisis transkripsi, filler words, jeda, intonasi, dan semua aspek public speaking sekaligus. Harap tunggu 10-30 detik...",
+      );
 
-        const processRes = await fetch(`${PROCESS_URL_BASE}${sessionId}`, {
-            method: 'POST'
-        });
+      const processRes = await fetch(`${PROCESS_URL_BASE}${sessionId}`, {
+        method: "POST",
+      });
 
-        const processData = await processRes.json();
+      const processData = await processRes.json();
 
-        if (!processData.success) {
-            throw new Error(processData.error || 'Analisis gagal');
-        }
+      if (!processData.success) {
+        throw new Error(processData.error || "Analisis gagal");
+      }
 
-        updateStep('transcribe', 'done', '✅');
-        updateStep('analyze', 'done', '✅');
-        updateProc('Selesai! Mengalihkan ke hasil...', '🎉 Analisis berhasil!');
+      updateStep("gemini", "done", "✅");
+      updateStep("save", "done", "✅");
+      updateProc(
+        "🎉 Analisis selesai! Mengalihkan ke hasil...",
+        "Semua aspek berhasil dianalisis oleh Gemini AI",
+      );
 
-        // Redirect ke halaman hasil
-        setTimeout(() => {
-            window.location.href = `${RESULT_URL_BASE}${sessionId}`;
-        }, 1500);
-
+      // Redirect ke halaman hasil
+      setTimeout(() => {
+        window.location.href = `${RESULT_URL_BASE}${sessionId}`;
+      }, 1500);
     } catch (err) {
-        updateProc('Terjadi kesalahan!', err.message);
-        document.getElementById('proc-spinner') && (document.querySelector('.proc-spinner').style.borderColor = '#ef4444');
-        console.error(err);
+      updateProc("Terjadi kesalahan!", err.message);
+      document.getElementById("proc-spinner") &&
+        (document.querySelector(".proc-spinner").style.borderColor = "#ef4444");
+      console.error(err);
 
-        setTimeout(() => {
-            document.getElementById('processing-section').style.display = 'none';
-            document.getElementById('playback-section').style.display = 'block';
-        }, 3000);
+      setTimeout(() => {
+        document.getElementById("processing-section").style.display = "none";
+        document.getElementById("playback-section").style.display = "block";
+      }, 3000);
     }
-}
+  }
 
-function updateStep(step, state, icon) {
+  function updateStep(step, state, icon) {
     document.getElementById(`status-${step}`).textContent = icon;
-    document.getElementById(`step-${step}`).className = `proc-step step-${state}`;
-}
+    document.getElementById(`step-${step}`).className =
+      `proc-step step-${state}`;
+  }
 
-function updateProc(title, desc) {
-    document.getElementById('proc-title').textContent = title;
-    document.getElementById('proc-desc').textContent = desc;
-}
+  function updateProc(title, desc) {
+    document.getElementById("proc-title").textContent = title;
+    document.getElementById("proc-desc").textContent = desc;
+  }
 </script>
 {% endblock %}

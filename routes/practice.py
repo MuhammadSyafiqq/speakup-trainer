@@ -61,6 +61,43 @@ CATEGORIES = [
     },
 ]
 
+@practice_bp.route('/interview/setup')
+@login_required
+def interview_setup():
+
+    positions = [
+        {
+            'id': 'frontend_dev',
+            'label': 'Frontend Developer',
+            'icon': '💻'
+        },
+        {
+            'id': 'backend_dev',
+            'label': 'Backend Developer',
+            'icon': '⚙️'
+        },
+        {
+            'id': 'uiux',
+            'label': 'UI/UX Designer',
+            'icon': '🎨'
+        },
+        {
+            'id': 'fresh_graduate',
+            'label': 'Fresh Graduate',
+            'icon': '🎓'
+        },
+        {
+            'id': 'custom',
+            'label': 'Custom Position',
+            'icon': '✨'
+        }
+    ]
+
+    return render_template(
+        'interview/setup.html',
+        positions=positions
+    )
+
 @practice_bp.route('/dashboard')
 @login_required
 def dashboard():
@@ -97,18 +134,40 @@ def setup_practice():
         flash('Kategori tidak ditemukan!', 'danger')
         return redirect(url_for('practice.select_category'))
 
+    # ── Kategori wawancara pakai sistem khusus real-time ──
+    if category_id == 'wawancara':
+        return redirect(url_for('practice.interview_setup'))
+
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         if not title:
             flash('Judul latihan harus diisi!', 'danger')
             return render_template('practice/setup.html', category=category)
-
         return redirect(url_for('practice.record',
             category=category_id,
             title=title
         ))
 
     return render_template('practice/setup.html', category=category)
+
+@practice_bp.route('/interview/session')
+@login_required
+def interview_session():
+
+    position = request.args.get('position', 'Fresh Graduate')
+    company  = request.args.get('company', '')
+    language = request.args.get('language', 'id')
+
+    # UBAH KE INTEGER
+    total_q = int(request.args.get('total_q', 5))
+
+    return render_template(
+        'interview/session.html',
+        position=position,
+        company=company,
+        total_q=total_q,
+        language=language
+    )
 
 @practice_bp.route('/practice/record')
 @login_required

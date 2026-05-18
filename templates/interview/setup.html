@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% block title %}Setup Wawancara — SpeakUp{% endblock %}
+{% block content %}
+
+<div class="page-container narrow">
+
+    <!-- Header -->
+    <div class="iw-setup-header">
+        <div class="iw-setup-icon">💼</div>
+        <h1>Simulasi Wawancara Kerja</h1>
+        <p>AI akan berperan sebagai HRD profesional dan mengajukan pertanyaan secara real-time. Jawab setiap pertanyaan dengan suara, lalu dapatkan feedback mendalam di akhir sesi.</p>
+    </div>
+
+    <!-- Cara Kerja -->
+    <div class="iw-how-card">
+        <h3>⚡ Cara Kerja</h3>
+        <div class="iw-steps">
+            <div class="iw-step">
+                <div class="iw-step-num">1</div>
+                <div>AI mengajukan pertanyaan wawancara</div>
+            </div>
+            <div class="iw-step">
+                <div class="iw-step-num">2</div>
+                <div>Kamu merekam jawaban dengan mikrofon</div>
+            </div>
+            <div class="iw-step">
+                <div class="iw-step-num">3</div>
+                <div>Jawaban diubah ke teks otomatis</div>
+            </div>
+            <div class="iw-step">
+                <div class="iw-step-num">4</div>
+                <div>AI menganalisis & memberi pertanyaan lanjutan</div>
+            </div>
+            <div class="iw-step">
+                <div class="iw-step-num">5</div>
+                <div>Feedback lengkap diberikan di akhir sesi</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Setup -->
+    <div class="iw-setup-card">
+        <h2>⚙️ Atur Sesi Wawancara</h2>
+
+        <form id="form-setup">
+
+            <!-- Pilih Posisi -->
+            <div class="form-group">
+                <label>🎯 Posisi yang Dilamar</label>
+                <div class="position-grid">
+                    {% for pos in positions %}
+                    <label class="position-card {% if pos.id == 'fresh_graduate' %}selected{% endif %}">
+                        <input type="radio" name="position_id" value="{{ pos.id }}"
+                               data-label="{{ pos.label }}"
+                               {% if pos.id == 'fresh_graduate' %}checked{% endif %}
+                               onchange="onPositionChange(this)">
+                        <span class="pos-icon">{{ pos.icon }}</span>
+                        <span class="pos-label">{{ pos.label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Custom position input (muncul jika pilih Custom) -->
+            <div class="form-group" id="custom-position-group" style="display:none">
+                <label>✏️ Nama Posisi Custom</label>
+                <input type="text" id="custom-position-input"
+                       placeholder="Contoh: Data Analyst, UI/UX Designer, dll">
+            </div>
+
+            <!-- Nama Perusahaan -->
+            <div class="form-group">
+                <label>🏢 Nama Perusahaan <span class="label-opt">(opsional)</span></label>
+                <input type="text" id="company-input"
+                       placeholder="Contoh: PT Maju Bersama, Startup XYZ...">
+                <span class="form-hint">Membantu AI menyesuaikan konteks pertanyaan</span>
+            </div>
+
+            <!-- Jumlah Pertanyaan -->
+            <div class="form-group">
+                <label>❓ Jumlah Pertanyaan</label>
+                <div class="qty-row">
+                    {% for n in [5, 7, 10] %}
+                    <label class="qty-card {% if n == 7 %}selected{% endif %}">
+                        <input type="radio" name="total_q" value="{{ n }}"
+                               {% if n == 7 %}checked{% endif %}
+                               onchange="document.querySelectorAll('.qty-card').forEach(c=>c.classList.remove('selected')); this.parentElement.classList.add('selected')">
+                        <span class="qty-num">{{ n }}</span>
+                        <span class="qty-label">
+                            {% if n == 5 %}Singkat{% elif n == 7 %}Standar{% else %}Mendalam{% endif %}
+                        </span>
+                        <span class="qty-dur">~{{ n * 2 }}-{{ n * 3 }} mnt</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Bahasa -->
+            <div class="form-group">
+                <label>🌐 Bahasa Wawancara</label>
+                <div class="lang-row">
+                    <label class="lang-card selected">
+                        <input type="radio" name="language" value="id" checked
+                               onchange="document.querySelectorAll('.lang-card').forEach(c=>c.classList.remove('selected')); this.parentElement.classList.add('selected')">
+                        🇮🇩 Bahasa Indonesia
+                    </label>
+                    <label class="lang-card">
+                        <input type="radio" name="language" value="en"
+                               onchange="document.querySelectorAll('.lang-card').forEach(c=>c.classList.remove('selected')); this.parentElement.classList.add('selected')">
+                        🇺🇸 English
+                    </label>
+                </div>
+            </div>
+
+            <button type="button" onclick="startInterview()" class="btn-primary btn-full btn-start-iw">
+                🚀 Mulai Simulasi Wawancara
+            </button>
+        </form>
+    </div>
+
+    <div class="setup-back">
+        <a href="{{ url_for('practice.select_category') }}">← Kembali ke Pilih Kategori</a>
+    </div>
+</div>
+
+{% endblock %}
+{% block extra_js %}
+<script>
+let selectedPositionLabel = 'Fresh Graduate Umum';
+
+function onPositionChange(radio) {
+    document.querySelectorAll('.position-card').forEach(c => c.classList.remove('selected'));
+    radio.parentElement.classList.add('selected');
+    selectedPositionLabel = radio.dataset.label;
+
+    const customGroup = document.getElementById('custom-position-group');
+    customGroup.style.display = radio.value === 'custom' ? 'block' : 'none';
+}
+
+function startInterview() {
+    const positionId  = document.querySelector('input[name="position_id"]:checked')?.value || 'fresh_graduate';
+    const totalQ      = document.querySelector('input[name="total_q"]:checked')?.value || 7;
+    const company     = document.getElementById('company-input').value.trim();
+    const language    = document.querySelector('input[name="language"]:checked')?.value || 'id';
+
+    let positionLabel = selectedPositionLabel;
+    if (positionId === 'custom') {
+        const custom = document.getElementById('custom-position-input').value.trim();
+        if (!custom) {
+            alert('Mohon isi nama posisi custom!');
+            return;
+        }
+        positionLabel = custom;
+    }
+
+    const params = new URLSearchParams({
+        position      : positionLabel,
+        position_label: positionLabel,
+        company       : company,
+        total_q       : totalQ,
+        language      : language,
+    });
+    window.location.href = `/interview/session?${params.toString()}`;
+}
+</script>
+{% endblock %}

@@ -29,11 +29,20 @@ def history():
 @history_bp.route('/history/chart-data')
 @login_required
 def chart_data():
-    """API endpoint untuk data chart perkembangan"""
+    category_filter = request.args.get('category', '')
+
     sessions = PracticeSession.query.filter_by(
         user_id=current_user.id,
         status='completed'
-    ).order_by(PracticeSession.created_at.asc()).limit(20).all()
+    )
+
+    # 🔥 TAMBAHKAN FILTER INI
+    if category_filter:
+        sessions = sessions.filter_by(category=category_filter)
+
+    sessions = sessions.order_by(
+        PracticeSession.created_at.asc()
+    ).limit(20).all()
 
     data = {
         'labels': [],

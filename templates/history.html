@@ -1,186 +1,253 @@
-{% extends 'base.html' %}
-{% block title %}Riwayat Latihan — SpeakUp{% endblock %}
-
-{% block content %}
+{% extends 'base.html' %} {% block title %}Riwayat Latihan — SpeakUp{% endblock
+%} {% block content %}
 <div class="page-container">
-    <div class="page-header">
-        <div>
-            <h1 class="page-title">Riwayat Latihan 📋</h1>
-            <p class="page-subtitle">Pantau perkembangan kemampuan public speaking kamu</p>
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Riwayat Latihan</h1>
+      <p class="page-subtitle">
+        Pantau perkembangan kemampuan public speaking kamu
+      </p>
+    </div>
+    <a href="{{ url_for('practice.select_category') }}" class="btn-primary"
+      >+ Latihan Baru</a
+    >
+  </div>
+
+  <!-- Chart Perkembangan -->
+  <div class="result-card chart-big-card">
+    <h2>📈 Grafik Perkembangan Skor</h2>
+    <div id="chart-loading" class="chart-loading">Memuat data...</div>
+    <canvas id="progressChart" height="100" style="display: none"></canvas>
+    <div id="chart-stats" class="chart-stats" style="display: none">
+      <div class="cs-item">
+        <div class="cs-num" id="cs-total">-</div>
+        <div class="cs-label">Total Sesi</div>
+      </div>
+      <div class="cs-item">
+        <div class="cs-num" id="cs-avg">-</div>
+        <div class="cs-label">Rata-rata</div>
+      </div>
+      <div class="cs-item">
+        <div class="cs-num" id="cs-best">-</div>
+        <div class="cs-label">Tertinggi</div>
+      </div>
+      <div class="cs-item">
+        <div class="cs-num" id="cs-improve">-</div>
+        <div class="cs-label">Perkembangan</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-bar">
+    <span>Filter:</span>
+    <a
+      href="{{ url_for('history.history') }}"
+      class="filter-btn {% if not category_filter %}active{% endif %}"
+      >Semua</a
+    >
+    <a
+      href="{{ url_for('history.history', category='pidato') }}"
+      class="filter-btn {% if category_filter == 'pidato' %}active{% endif %}"
+      >Pidato</a
+    >
+    <a
+      href="{{ url_for('history.history', category='wawancara') }}"
+      class="filter-btn {% if category_filter == 'wawancara' %}active{% endif %}"
+      >Wawancara</a
+    >
+    <a
+      href="{{ url_for('history.history', category='presentasi') }}"
+      class="filter-btn {% if category_filter == 'presentasi' %}active{% endif %}"
+      >Presentasi</a
+    >
+    <a
+      href="{{ url_for('history.history', category='debat') }}"
+      class="filter-btn {% if category_filter == 'debat' %}active{% endif %}"
+      >Debat</a
+    >
+    <a
+      href="{{ url_for('history.history', category='storytelling') }}"
+      class="filter-btn {% if category_filter == 'storytelling' %}active{% endif %}"
+      >Storytelling</a
+    >
+    <a
+      href="{{ url_for('history.history', category='masterofceremony') }}"
+      class="filter-btn {% if category_filter == 'masterofceremony' %}active{% endif %}"
+      >Master of Ceremony</a
+    >
+  </div>
+
+  <!-- Daftar Sesi -->
+  {% if sessions.items %}
+  <div class="sessions-table">
+    {% for s in sessions.items %} {% set grade, grade_text = s.get_grade() %}
+    <div class="session-row">
+      <div class="sr-score">
+        <div class="score-circle-sm grade-{{ grade }}">
+          {{ s.score_total|int }}
         </div>
-        <a href="{{ url_for('practice.select_category') }}" class="btn-primary">+ Latihan Baru</a>
-    </div>
-
-    <!-- Chart Perkembangan -->
-    <div class="result-card chart-big-card">
-        <h2>📈 Grafik Perkembangan Skor</h2>
-        <div id="chart-loading" class="chart-loading">Memuat data...</div>
-        <canvas id="progressChart" height="100" style="display:none"></canvas>
-        <div id="chart-stats" class="chart-stats" style="display:none">
-            <div class="cs-item"><div class="cs-num" id="cs-total">-</div><div class="cs-label">Total Sesi</div></div>
-            <div class="cs-item"><div class="cs-num" id="cs-avg">-</div><div class="cs-label">Rata-rata</div></div>
-            <div class="cs-item"><div class="cs-num" id="cs-best">-</div><div class="cs-label">Tertinggi</div></div>
-            <div class="cs-item"><div class="cs-num" id="cs-improve">-</div><div class="cs-label">Perkembangan</div></div>
+        <div class="grade-label">{{ grade }}</div>
+      </div>
+      <div class="sr-info">
+        <div class="sr-title">{{ s.title }}</div>
+        <div class="sr-meta">
+          <span class="badge-category">{{ s.category }}</span>
+          <span>{{ s.created_at.strftime('%d %b %Y %H:%M') }}</span>
+          {% if s.duration_seconds > 0 %}
+          <span
+            >⏱️ {{ (s.duration_seconds // 60)|int }}m {{ (s.duration_seconds %
+            60)|int }}s</span
+          >
+          {% endif %}
         </div>
-    </div>
-
-    <!-- Filter -->
-    <div class="filter-bar">
-        <span>Filter:</span>
-        <a href="{{ url_for('history.history') }}" class="filter-btn {% if not category_filter %}active{% endif %}">Semua</a>
-        <a href="{{ url_for('history.history', category='pidato') }}" class="filter-btn {% if category_filter == 'pidato' %}active{% endif %}">🎤 Pidato</a>
-        <a href="{{ url_for('history.history', category='wawancara') }}" class="filter-btn {% if category_filter == 'wawancara' %}active{% endif %}">💼 Wawancara</a>
-        <a href="{{ url_for('history.history', category='presentasi') }}" class="filter-btn {% if category_filter == 'presentasi' %}active{% endif %}">📊 Presentasi</a>
-        <a href="{{ url_for('history.history', category='debat') }}" class="filter-btn {% if category_filter == 'debat' %}active{% endif %}">⚖️ Debat</a>
-    </div>
-
-    <!-- Daftar Sesi -->
-    {% if sessions.items %}
-    <div class="sessions-table">
-        {% for s in sessions.items %}
-        {% set grade, grade_text = s.get_grade() %}
-        <div class="session-row">
-            <div class="sr-score">
-                <div class="score-circle-sm grade-{{ grade }}">{{ s.score_total|int }}</div>
-                <div class="grade-label">{{ grade }}</div>
-            </div>
-            <div class="sr-info">
-                <div class="sr-title">{{ s.title }}</div>
-                <div class="sr-meta">
-                    <span class="badge-category">{{ s.category }}</span>
-                    <span>{{ s.created_at.strftime('%d %b %Y %H:%M') }}</span>
-                    {% if s.duration_seconds > 0 %}
-                    <span>⏱️ {{ (s.duration_seconds // 60)|int }}m {{ (s.duration_seconds % 60)|int }}s</span>
-                    {% endif %}
-                </div>
-                <div class="sr-scores-mini">
-                    <span title="Kejelasan">🗣️ {{ s.score_clarity|int }}</span>
-                    <span title="Struktur">📋 {{ s.score_structure|int }}</span>
-                    <span title="Kepercayaan">💪 {{ s.score_confidence|int }}</span>
-                    <span title="Relevansi">🎯 {{ s.score_relevance|int }}</span>
-                </div>
-            </div>
-            <div class="sr-actions">
-                <a href="{{ url_for('practice.result', session_id=s.id) }}" class="btn-sm">Lihat</a>
-                <button onclick="deleteSession({{ s.id }})" class="btn-sm btn-danger">Hapus</button>
-            </div>
+        <div class="sr-scores-mini">
+          <span title="Kejelasan">🗣️ {{ s.score_clarity|int }}</span>
+          <span title="Struktur">📋 {{ s.score_structure|int }}</span>
+          <span title="Kepercayaan">💪 {{ s.score_confidence|int }}</span>
+          <span title="Relevansi">🎯 {{ s.score_relevance|int }}</span>
         </div>
-        {% endfor %}
+      </div>
+      <div class="sr-actions">
+        <a
+          href="{{ url_for('practice.result', session_id=s.id) }}"
+          class="btn-sm"
+          >Lihat</a
+        >
+        <button onclick="deleteSession({{ s.id }})" class="btn-sm btn-danger">
+          Hapus
+        </button>
+      </div>
     </div>
+    {% endfor %}
+  </div>
 
-    <!-- Pagination -->
-    {% if sessions.pages > 1 %}
-    <div class="pagination">
-        {% if sessions.has_prev %}
-        <a href="{{ url_for('history.history', page=sessions.prev_num) }}" class="page-btn">← Sebelumnya</a>
-        {% endif %}
-        <span>Halaman {{ sessions.page }} dari {{ sessions.pages }}</span>
-        {% if sessions.has_next %}
-        <a href="{{ url_for('history.history', page=sessions.next_num) }}" class="page-btn">Berikutnya →</a>
-        {% endif %}
-    </div>
+  <!-- Pagination -->
+  {% if sessions.pages > 1 %}
+  <div class="pagination">
+    {% if sessions.has_prev %}
+    <a
+      href="{{ url_for('history.history', page=sessions.prev_num) }}"
+      class="page-btn"
+      >← Sebelumnya</a
+    >
     {% endif %}
-
-    {% else %}
-    <div class="empty-state">
-        <div class="empty-icon">📭</div>
-        <h3>Belum ada riwayat latihan</h3>
-        <p>Mulai latihan pertamamu dan hasil analisis akan muncul di sini</p>
-        <a href="{{ url_for('practice.select_category') }}" class="btn-primary">Mulai Latihan</a>
-    </div>
+    <span>Halaman {{ sessions.page }} dari {{ sessions.pages }}</span>
+    {% if sessions.has_next %}
+    <a
+      href="{{ url_for('history.history', page=sessions.next_num) }}"
+      class="page-btn"
+      >Berikutnya →</a
+    >
     {% endif %}
+  </div>
+  {% endif %} {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📭</div>
+    <h3>Belum ada riwayat latihan</h3>
+    <p>Mulai latihan pertamamu dan hasil analisis akan muncul di sini</p>
+    <a href="{{ url_for('practice.select_category') }}" class="btn-primary"
+      >Mulai Latihan</a
+    >
+  </div>
+  {% endif %}
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
-// Load chart data
-fetch('/history/chart-data')
-    .then(r => r.json())
-    .then(data => {
-        document.getElementById('chart-loading').style.display = 'none';
+  // Load chart data
+  const urlParams = new URLSearchParams(window.location.search);
+  const category = urlParams.get("category") || "";
 
-        if (data.labels.length === 0) return;
+  fetch(`/history/chart-data?category=${category}`)
+    .then((r) => r.json())
+    .then((data) => {
+      document.getElementById("chart-loading").style.display = "none";
 
-        document.getElementById('progressChart').style.display = 'block';
-        document.getElementById('chart-stats').style.display = 'flex';
+      if (data.labels.length === 0) return;
 
-        // Update stats
-        const s = data.stats;
-        document.getElementById('cs-total').textContent = s.total_sessions;
-        document.getElementById('cs-avg').textContent = s.avg_score;
-        document.getElementById('cs-best').textContent = s.best_score;
-        const imp = s.improvement;
-        document.getElementById('cs-improve').textContent = (imp >= 0 ? '+' : '') + imp;
-        document.getElementById('cs-improve').style.color = imp >= 0 ? '#10b981' : '#ef4444';
+      document.getElementById("progressChart").style.display = "block";
+      document.getElementById("chart-stats").style.display = "flex";
 
-        // Chart
-        const ctx = document.getElementById('progressChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: data.labels,
-                datasets: [
-                    {
-                        label: 'Skor Total',
-                        data: data.scores_total,
-                        borderColor: '#4F46E5',
-                        backgroundColor: 'rgba(79,70,229,0.1)',
-                        borderWidth: 3,
-                        tension: 0.4,
-                        fill: true,
-                        pointRadius: 5,
-                    },
-                    {
-                        label: 'Kejelasan',
-                        data: data.scores_clarity,
-                        borderColor: '#10b981',
-                        borderWidth: 1.5,
-                        tension: 0.4,
-                        borderDash: [5,5],
-                        pointRadius: 3,
-                    },
-                    {
-                        label: 'Struktur',
-                        data: data.scores_structure,
-                        borderColor: '#f59e0b',
-                        borderWidth: 1.5,
-                        tension: 0.4,
-                        borderDash: [5,5],
-                        pointRadius: 3,
-                    },
-                ]
+      // Update stats
+      const s = data.stats;
+      document.getElementById("cs-total").textContent = s.total_sessions;
+      document.getElementById("cs-avg").textContent = s.avg_score;
+      document.getElementById("cs-best").textContent = s.best_score;
+      const imp = s.improvement;
+      document.getElementById("cs-improve").textContent =
+        (imp >= 0 ? "+" : "") + imp;
+      document.getElementById("cs-improve").style.color =
+        imp >= 0 ? "#10b981" : "#ef4444";
+
+      // Chart
+      const ctx = document.getElementById("progressChart").getContext("2d");
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: data.labels,
+          datasets: [
+            {
+              label: "Skor Total",
+              data: data.scores_total,
+              borderColor: "#4F46E5",
+              backgroundColor: "rgba(79,70,229,0.1)",
+              borderWidth: 3,
+              tension: 0.4,
+              fill: true,
+              pointRadius: 5,
             },
-            options: {
-                responsive: true,
-                interaction: { mode: 'index', intersect: false },
-                scales: {
-                    y: { min: 0, max: 100, ticks: { stepSize: 20 } }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            title: (items) => data.titles[items[0].dataIndex] || items[0].label
-                        }
-                    }
-                }
-            }
-        });
+            {
+              label: "Kejelasan",
+              data: data.scores_clarity,
+              borderColor: "#10b981",
+              borderWidth: 1.5,
+              tension: 0.4,
+              borderDash: [5, 5],
+              pointRadius: 3,
+            },
+            {
+              label: "Struktur",
+              data: data.scores_structure,
+              borderColor: "#f59e0b",
+              borderWidth: 1.5,
+              tension: 0.4,
+              borderDash: [5, 5],
+              pointRadius: 3,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          interaction: { mode: "index", intersect: false },
+          scales: {
+            y: { min: 0, max: 100, ticks: { stepSize: 20 } },
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                title: (items) =>
+                  data.titles[items[0].dataIndex] || items[0].label,
+              },
+            },
+          },
+        },
+      });
     })
     .catch(() => {
-        document.getElementById('chart-loading').textContent = 'Belum ada data untuk ditampilkan';
+      document.getElementById("chart-loading").textContent =
+        "Belum ada data untuk ditampilkan";
     });
 
-// Delete session
-function deleteSession(id) {
-    if (!confirm('Hapus sesi latihan ini?')) return;
-    fetch(`/history/delete/${id}`, { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) location.reload();
-            else alert('Gagal menghapus!');
-        });
-}
+  // Delete session
+  function deleteSession(id) {
+    if (!confirm("Hapus sesi latihan ini?")) return;
+    fetch(`/history/delete/${id}`, { method: "POST" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) location.reload();
+        else alert("Gagal menghapus!");
+      });
+  }
 </script>
 {% endblock %}

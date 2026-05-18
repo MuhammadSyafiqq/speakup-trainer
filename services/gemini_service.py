@@ -15,6 +15,26 @@ MAX_FILE_SIZE_MB = 20  # Batas aman untuk Gemini inline audio
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-2.5-flash')
 
+def generate_with_retry(prompt):
+    max_retries = 3
+
+    for attempt in range(max_retries):
+        try:
+            response = model.generate_content(prompt)
+            return response.text
+
+        except Exception as e:
+            error_msg = str(e)
+
+            if "429" in error_msg:
+                wait_time = 40
+                print(f"Quota habis. Menunggu {wait_time} detik...")
+                time.sleep(wait_time)
+            else:
+                raise e
+
+    raise Exception("Gagal setelah beberapa percobaan")
+
 
 # ============================================
 # KONVERSI AUDIO KE MP3

@@ -1,39 +1,73 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
 from dotenv import load_dotenv
 import os
+
+from extensions import db, login_manager
 
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-ganti-ini')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///speaking_trainer.db'
+
+app.config['SECRET_KEY'] = os.getenv(
+    'SECRET_KEY',
+    'dev-secret-key-ganti-ini'
+)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    'sqlite:///speaking_trainer.db'
+)
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = os.path.join('static', 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload
+
+app.config['UPLOAD_FOLDER'] = os.path.join(
+    'static',
+    'uploads'
+)
+
+app.config['MAX_CONTENT_LENGTH'] = (
+    50 * 1024 * 1024
+)
 
 # Buat folder uploads kalau belum ada
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs(
+    app.config['UPLOAD_FOLDER'],
+    exist_ok=True
+)
 
-from extensions import db, login_manager
+# ============================================
+# INIT EXTENSIONS
+# ============================================
 
 db.init_app(app)
+
 login_manager.init_app(app)
+
 login_manager.login_view = 'auth.login'
-login_manager.login_message = 'Silakan login terlebih dahulu.'
+
+login_manager.login_message = (
+    'Silakan login terlebih dahulu.'
+)
+
 login_manager.login_message_category = 'warning'
 
-# Import routes setelah db dibuat
+# ============================================
+# IMPORT ROUTES
+# ============================================
+
 from routes.auth import auth_bp
 from routes.practice import practice_bp
 from routes.history import history_bp
+from routes.agent import agent_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(practice_bp)
 app.register_blueprint(history_bp)
+app.register_blueprint(agent_bp)
 
-# Import models untuk create_all
+# ============================================
+# IMPORT MODELS
+# ============================================
+
 from models.user import User
 from models.session import PracticeSession
 
@@ -41,9 +75,13 @@ from models.session import PracticeSession
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+# ============================================
+# CREATE DATABASE
+# ============================================
+
 with app.app_context():
     db.create_all()
-    print("✅ Database berhasil dibuat!")
+    print('✅ Database berhasil dibuat!')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+    app.run(debug=True, port=5000)

@@ -6,7 +6,6 @@ from services.gemini_service import analyze_audio_with_gemini
 import os
 import uuid
 from datetime import datetime
-import json
 
 practice_bp = Blueprint('practice', __name__)
 
@@ -136,9 +135,25 @@ def upload_audio():
             return jsonify({'success': False, 'error': 'File audio tidak ditemukan'}), 400
 
         audio_file = request.files['audio']
-        category = request.form.get('category', 'pidato')
-        title = request.form.get('title', 'Latihan')
+
+        # Ambil category dan title dari form — log untuk debug
+        category = request.form.get('category', '').strip()
+        title    = request.form.get('title', '').strip()
         duration = request.form.get('duration', 0)
+
+        print(f"📥 Upload diterima — category='{category}', title='{title}'")
+
+        # Validasi category — pastikan bukan kosong atau salah
+        valid_categories = ['pidato', 'wawancara', 'presentasi', 'debat', 'mc', 'storytelling']
+        if not category or category not in valid_categories:
+            print(f"⚠️ Category tidak valid: '{category}', fallback ke form data: {dict(request.form)}")
+            # Coba ambil dari semua kemungkinan key
+            for key in request.form:
+                print(f"   Form key: '{key}' = '{request.form.get(key)}'")
+            category = 'pidato'  # fallback
+
+        if not title:
+            title = 'Latihan tanpa judul'
 
         if audio_file.filename == '':
             return jsonify({'success': False, 'error': 'Tidak ada file yang dipilih'}), 400
@@ -148,7 +163,10 @@ def upload_audio():
         filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
         audio_file.save(filepath)
 
-        # Buat record session dulu dengan status processing
+        print(f"✅ Audio disimpan: {filepath}")
+        print(f"✅ Session akan dibuat: category='{category}', title='{title}'")
+
+        # Buat record session
         session = PracticeSession(
             user_id=current_user.id,
             category=category,
@@ -160,13 +178,18 @@ def upload_audio():
         db.session.add(session)
         db.session.commit()
 
+        print(f"✅ Session #{session.id} dibuat — category='{session.category}', title='{session.title}'")
+
         return jsonify({
             'success': True,
             'session_id': session.id,
-            'message': 'Audio berhasil diupload, sedang diproses...'
+            'category': session.category,  # kirim balik untuk verifikasi di frontend
+            'title': session.title,
+            'message': 'Audio berhasil diupload!'
         })
 
     except Exception as e:
+        print(f"❌ Error upload_audio: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @practice_bp.route('/practice/process/<int:session_id>', methods=['POST'])
@@ -202,40 +225,17 @@ def process_session(session_id):
         session.score_fluency    = result.get('score_fluency', 0)
         session.calculate_total_score()
 
-        def safe_text(value):
-            if isinstance(value, (list, dict)):
-                return json.dumps(value, ensure_ascii=False)
-            return str(value) if value is not None else ''
-
-
-        # ============================================
         # Simpan feedback
-        # ============================================
-        session.strengths = safe_text(result.get('strengths', ''))
-        session.weaknesses = safe_text(result.get('weaknesses', ''))
-
-        session.suggestions = safe_text(
-            result.get('suggestions', [])
-        )
+        session.strengths  = result.get('strengths', '')
+        session.weaknesses = result.get('weaknesses', '')
+        session.suggestions = result.get('suggestions', '')
 
         # Simpan semua detail ke feedback_json
         # termasuk transcript_detail dan audio_analysis
-        feedback_detail = result.get('feedback_detail', {})
-
-        if not isinstance(feedback_detail, dict):
-            feedback_detail = {}
-
-        audio_analysis = result.get('audio_analysis', {})
-
-        if not isinstance(audio_analysis, dict):
-            audio_analysis = {}
-
         feedback_data = {
-            **feedback_detail,
-            'transcript_detail': safe_text(
-                result.get('transcript_detail', '')
-            ),
-            'audio_analysis': audio_analysis,
+            **result.get('feedback_detail', {}),
+            'transcript_detail': result.get('transcript_detail', ''),
+            'audio_analysis': result.get('audio_analysis', {}),
         }
         session.set_feedback(feedback_data)
         session.status = 'completed'

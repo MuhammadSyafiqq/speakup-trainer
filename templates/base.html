@@ -1,69 +1,201 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}SpeakUp - Public Speaking Trainer{% endblock %}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      {% block title %}SpeakUp - Public Speaking Trainer{% endblock %}
+    </title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
     {% block extra_css %}{% endblock %}
-</head>
-<body>
-
-<!-- Navbar -->
-<nav class="navbar">
-    <div class="nav-container">
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar">
+      <div class="nav-container">
         <a href="{{ url_for('auth.index') }}" class="nav-brand">
-            <span class="brand-icon">🎤</span>
-            <span class="brand-name">SpeakUp</span>
+          <span class="brand-icon">🎤</span>
+          <span class="brand-name">SpeakUp</span>
         </a>
 
         {% if current_user.is_authenticated %}
         <div class="nav-links">
-            <a href="{{ url_for('practice.dashboard') }}" class="nav-link {% if request.endpoint == 'practice.dashboard' %}active{% endif %}">Dashboard</a>
-            <a href="{{ url_for('practice.select_category') }}" class="nav-link {% if 'practice' in request.endpoint %}active{% endif %}">Latihan</a>
-            <a href="{{ url_for('history.history') }}" class="nav-link {% if request.endpoint == 'history.history' %}active{% endif %}">Riwayat</a>
+          <a
+            href="{{ url_for('practice.dashboard') }}"
+            class="nav-link {% if request.endpoint == 'practice.dashboard' %}active{% endif %}"
+            >Dashboard</a
+          >
+          <a
+            href="{{ url_for('practice.select_category') }}"
+            class="nav-link {% if 'practice' in request.endpoint %}active{% endif %}"
+            >Latihan</a
+          >
+          <a
+            href="{{ url_for('history.history') }}"
+            class="nav-link {% if request.endpoint == 'history.history' %}active{% endif %}"
+            >Riwayat</a
+          >
         </div>
         <div class="nav-user">
-            <span class="user-greeting">👋 {{ current_user.username }}</span>
-            <a href="{{ url_for('auth.logout') }}" class="btn-logout">Keluar</a>
+          <span class="user-greeting">👋 {{ current_user.username }}</span>
+          <a href="{{ url_for('auth.logout') }}" class="btn-logout">Keluar</a>
         </div>
         {% else %}
         <div class="nav-links">
-            <a href="{{ url_for('auth.login') }}" class="nav-link">Masuk</a>
-            <a href="{{ url_for('auth.register') }}" class="btn-primary-sm">Daftar</a>
+          <a href="{{ url_for('auth.login') }}" class="nav-link">Masuk</a>
+          <a href="{{ url_for('auth.register') }}" class="btn-primary-sm"
+            >Daftar</a
+          >
         </div>
         {% endif %}
-    </div>
-</nav>
+      </div>
+    </nav>
 
-<!-- Flash Messages -->
-{% with messages = get_flashed_messages(with_categories=true) %}
-{% if messages %}
-<div class="flash-container">
-    {% for category, message in messages %}
-    <div class="flash flash-{{ category }}">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %} {% if
+    messages %}
+    <div class="flash-container">
+      {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">
         <span>{{ message }}</span>
-        <button onclick="this.parentElement.remove()" class="flash-close">×</button>
+        <button onclick="this.parentElement.remove()" class="flash-close">
+          ×
+        </button>
+      </div>
+      {% endfor %}
     </div>
-    {% endfor %}
-</div>
-{% endif %}
-{% endwith %}
+    {% endif %} {% endwith %}
 
-<!-- Main Content -->
-<main class="main-content">
-    {% block content %}{% endblock %}
-</main>
+    <!-- Main Content -->
+    <main class="main-content">{% block content %}{% endblock %}</main>
 
-<!-- Footer -->
-<footer class="footer">
-    <p>🎤 SpeakUp — Platform Latihan Public Speaking berbasis AI</p>
-    <p class="footer-sub">Dibuat dengan ❤️ untuk membantu kamu berbicara lebih percaya diri</p>
-</footer>
+    <!-- Footer -->
+    <footer class="footer">
+      <p>🎤 SpeakUp — Platform Latihan Public Speaking berbasis AI</p>
+      <p class="footer-sub">
+        Dibuat dengan ❤️ untuk membantu kamu berbicara lebih percaya diri
+      </p>
+    </footer>
 
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
-{% block extra_js %}{% endblock %}
-</body>
+    <!-- ============================================ -->
+    <!-- AI AGENT CHATBOX — Muncul di semua halaman  -->
+    <!-- ============================================ -->
+    {% if current_user.is_authenticated %}
+
+    <!-- Tombol Buka Chat -->
+    <button
+      class="agent-fab"
+      onclick="toggleAgentChat()"
+      title="AI Naskah Generator"
+    >
+      <span class="fab-icon" id="fab-icon">✍️</span>
+      <span class="fab-label">Buat Naskah</span>
+      <span class="fab-notif" id="fab-notif" style="display: none"></span>
+    </button>
+
+    <!-- Popup Chatbox -->
+    <div class="agent-chat" id="agent-chat">
+      <!-- Header -->
+      <div class="ac-header">
+        <div class="ac-header-left">
+          <div class="ac-avatar">🤖</div>
+          <div>
+            <div class="ac-name">SpeakUp AI Agent</div>
+            <div class="ac-status" id="ac-status">
+              <span class="status-dot"></span> Online · Gemini 1.5 Flash
+            </div>
+          </div>
+        </div>
+        <div class="ac-header-actions">
+          <button onclick="clearChat()" title="Bersihkan chat" class="ac-btn">
+            🗑️
+          </button>
+          <button onclick="toggleAgentChat()" title="Tutup" class="ac-btn">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Prompt Chips -->
+      <div class="ac-chips" id="ac-chips">
+        <div class="chips-label">⚡ Mulai cepat:</div>
+        <div class="chips-row">
+          <button class="chip" onclick="quickPrompt('pidato')">
+            🎤 Pidato
+          </button>
+          <button class="chip" onclick="quickPrompt('wawancara')">
+            💼 Wawancara
+          </button>
+          <button class="chip" onclick="quickPrompt('presentasi')">
+            📊 Presentasi
+          </button>
+          <button class="chip" onclick="quickPrompt('debat')">⚖️ Debat</button>
+          <button class="chip" onclick="quickPrompt('mc')">🎭 MC</button>
+          <button class="chip" onclick="quickPrompt('storytelling')">
+            📖 Cerita
+          </button>
+        </div>
+      </div>
+
+      <!-- Pesan Chat -->
+      <div class="ac-messages" id="ac-messages">
+        <!-- Pesan selamat datang -->
+        <div class="ac-msg bot">
+          <div class="msg-avatar">🤖</div>
+          <div class="msg-bubble">
+            <p>Halo <strong>{{ current_user.username }}</strong>! 👋</p>
+            <p>
+              Saya AI Agent SpeakUp siap membantu kamu membuat naskah untuk:
+            </p>
+            <ul>
+              <li>🎤 Pidato formal / sambutan</li>
+              <li>💼 Jawaban wawancara kerja</li>
+              <li>📊 Skrip presentasi</li>
+              <li>⚖️ Argumen debat</li>
+              <li>🎭 Teks MC / pembawa acara</li>
+              <li>📖 Naskah storytelling</li>
+            </ul>
+            <p>
+              Pilih kategori di atas atau ceritakan apa yang kamu butuhkan! 😊
+            </p>
+            <div class="msg-time">Sekarang</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="ac-input-area">
+        <div class="ac-input-row">
+          <textarea
+            id="ac-input"
+            class="ac-textarea"
+            placeholder="Contoh: Buatkan naskah pidato tentang pentingnya pendidikan, durasi 5 menit..."
+            rows="2"
+            onkeydown="handleEnter(event)"
+          ></textarea>
+          <button class="ac-send" id="ac-send" onclick="sendMessage()">
+            <span id="send-icon">➤</span>
+          </button>
+        </div>
+        <div class="ac-footer-note">
+          ✨ Powered by Gemini 1.5 Flash · Enter untuk kirim · Shift+Enter baris
+          baru
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    <!-- END AI AGENT CHATBOX -->
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/agent.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+  </body>
 </html>

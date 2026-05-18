@@ -1,0 +1,597 @@
+{% extends 'base.html' %} {% block title %}Sesi Wawancara — SpeakUp{% endblock
+%} {% block content %}
+
+<!-- Hidden data dari server -->
+<input type="hidden" id="hd-position" value="{{ position | e }}" />
+<input type="hidden" id="hd-company" value="{{ company | e }}" />
+<input type="hidden" id="hd-total-q" value="{{ total_q }}" />
+<input
+  type="hidden"
+  id="hd-lang"
+  value="{{ request.args.get('language', 'id') }}"
+/>
+
+<div class="iw-session-wrap">
+  <!-- ── SIDEBAR KIRI: Progress & Info ── -->
+  <div class="iw-sidebar">
+    <div class="iw-sidebar-header">
+      <div class="iw-sidebar-icon">💼</div>
+      <div>
+        <div class="iw-pos-name">{{ position_label }}</div>
+        {% if company %}
+        <div class="iw-company">{{ company }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="iw-progress-box">
+      <div class="iw-prog-label">
+        <span>Pertanyaan</span>
+        <span id="prog-text">0 / {{ total_q }}</span>
+      </div>
+      <div class="iw-prog-track">
+        <div class="iw-prog-fill" id="prog-fill" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Daftar Pertanyaan -->
+    <div class="iw-q-list" id="q-list">
+      {% for i in range(total_q) %}
+      <div class="iw-q-item" id="qitem-{{ i+1 }}">
+        <div class="iw-q-dot pending" id="qdot-{{ i+1 }}"></div>
+        <div class="iw-q-info">
+          <div class="iw-q-num">Pertanyaan {{ i+1 }}</div>
+          <div class="iw-q-preview" id="qprev-{{ i+1 }}">Menunggu...</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Timer -->
+    <div class="iw-timer-box">
+      <div class="iw-timer-icon">⏱️</div>
+      <div>
+        <div class="iw-timer-val" id="session-timer">00:00</div>
+        <div class="iw-timer-label">Durasi Sesi</div>
+      </div>
+    </div>
+
+    <!-- Tombol Akhiri -->
+    <button
+      class="btn-end-session"
+      id="btn-end"
+      onclick="confirmEndSession()"
+      disabled
+    >
+      🏁 Akhiri & Lihat Hasil
+    </button>
+  </div>
+
+  <!-- ── AREA UTAMA: Chat Wawancara ── -->
+  <div class="iw-main">
+    <!-- Top Bar -->
+    <div class="iw-topbar">
+      <div class="iw-topbar-left">
+        <div class="iw-ai-avatar">🤖</div>
+        <div>
+          <div class="iw-ai-name">HRD AI — SpeakUp</div>
+          <div class="iw-ai-status">
+            <span class="iw-dot"></span>
+            <span id="ai-status-text">Mempersiapkan pertanyaan...</span>
+          </div>
+        </div>
+      </div>
+      <div class="iw-q-counter">
+        <span id="current-q-num">0</span>/<span>{{ total_q }}</span>
+      </div>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="iw-chat" id="iw-chat">
+      <!-- Pesan selamat datang -->
+      <div class="iw-bubble ai-bubble intro-bubble">
+        <div class="bubble-avatar">🤖</div>
+        <div class="bubble-content">
+          <p>Selamat datang di sesi simulasi wawancara!</p>
+          <p>
+            Saya akan berperan sebagai HRD untuk posisi
+            <strong>{{ position_label }}</strong> {% if company %}di
+            <strong>{{ company }}</strong>{% endif %}.
+          </p>
+          <p>
+            Ada <strong>{{ total_q }} pertanyaan</strong> yang akan saya ajukan.
+            Jawab setiap pertanyaan menggunakan mikrofon. Siap? Pertanyaan
+            pertama akan segera muncul... 🎙️
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="iw-input-area" id="iw-input-area">
+      <!-- State: Menunggu pertanyaan AI -->
+      <div class="iw-state" id="state-waiting">
+        <div class="iw-waiting-anim">
+          <span></span><span></span><span></span>
+        </div>
+        <p>AI sedang menyiapkan pertanyaan...</p>
+      </div>
+
+      <!-- State: Siap merekam jawaban -->
+      <div class="iw-state" id="state-ready" style="display: none">
+        <div class="iw-answer-info">
+          <div class="iw-answer-timer">
+            <span class="ans-timer-icon">🔴</span>
+            <span id="ans-timer">00:00</span>
+          </div>
+          <span id="ans-status">Siap menjawab</span>
+        </div>
+        <div class="iw-answer-btns">
+          <button
+            class="btn-rec-start"
+            id="btn-rec-start"
+            onclick="startAnswer()"
+          >
+            🎙️ Mulai Menjawab
+          </button>
+          <button
+            class="btn-rec-stop"
+            id="btn-rec-stop"
+            onclick="stopAnswer()"
+            disabled
+          >
+            ⏹ Selesai Menjawab
+          </button>
+          <button class="btn-skip" onclick="skipQuestion()">⏭ Lewati</button>
+        </div>
+        <div class="iw-rec-hint">
+          Tekan <strong>Mulai Menjawab</strong> saat siap berbicara, lalu
+          <strong>Selesai Menjawab</strong> jika sudah selesai.
+        </div>
+      </div>
+
+      <!-- State: Processing jawaban -->
+      <div class="iw-state" id="state-processing" style="display: none">
+        <div class="iw-proc-anim">
+          <div class="proc-ring"></div>
+        </div>
+        <p id="proc-msg">Memproses jawabanmu...</p>
+      </div>
+
+      <!-- State: Sesi selesai -->
+      <div class="iw-state" id="state-done" style="display: none">
+        <div class="iw-done-icon">🎉</div>
+        <p><strong>Semua pertanyaan selesai!</strong></p>
+        <p>Klik tombol di bawah untuk melihat hasil analisis lengkap.</p>
+        <button class="btn-primary btn-see-result" onclick="finishSession()">
+          📊 Lihat Hasil & Feedback
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal konfirmasi akhiri -->
+<div class="iw-modal-overlay" id="modal-end" style="display: none">
+  <div class="iw-modal">
+    <div class="iw-modal-icon">🏁</div>
+    <h3>Akhiri Sesi?</h3>
+    <p>
+      Kamu baru menjawab <span id="modal-answered">0</span> dari {{ total_q }}
+      pertanyaan.<br />
+      Hasil analisis akan dibuat berdasarkan jawaban yang sudah ada.
+    </p>
+    <div class="iw-modal-btns">
+      <button onclick="closeModal()" class="btn-secondary">
+        Lanjutkan Wawancara
+      </button>
+      <button onclick="finishSession()" class="btn-primary">
+        Ya, Akhiri & Analisis
+      </button>
+    </div>
+  </div>
+</div>
+
+{% endblock %} {% block extra_js %}
+<script>
+  // =========================================
+  // KONFIGURASI
+  // =========================================
+  const POSITION = document.getElementById("hd-position").value;
+  const COMPANY = document.getElementById("hd-company").value;
+  const TOTAL_Q = parseInt(document.getElementById("hd-total-q").value);
+  const LANGUAGE = document.getElementById("hd-lang").value;
+
+  // State
+  let currentQNum = 0;
+  let answers = [];
+  let currentQuestion = "";
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let answerStartTime = null;
+  let answerTimer = null;
+  let sessionTimerInterval = null;
+  let sessionStartTime = null;
+  let isRecording = false;
+  let sessionEnded = false;
+
+  // =========================================
+  // INISIALISASI — Mulai sesi
+  // =========================================
+  document.addEventListener("DOMContentLoaded", () => {
+    startSessionTimer();
+    setTimeout(() => loadNextQuestion(), 1500);
+  });
+
+  // =========================================
+  // TIMER SESI
+  // =========================================
+  function startSessionTimer() {
+    sessionStartTime = Date.now();
+    sessionTimerInterval = setInterval(() => {
+      const s = Math.floor((Date.now() - sessionStartTime) / 1000);
+      const min = String(Math.floor(s / 60)).padStart(2, "0");
+      const sec = String(s % 60).padStart(2, "0");
+      document.getElementById("session-timer").textContent = `${min}:${sec}`;
+    }, 1000);
+  }
+
+  // =========================================
+  // MUAT PERTANYAAN BERIKUTNYA
+  // =========================================
+  async function loadNextQuestion() {
+    if (currentQNum >= TOTAL_Q) {
+      endSession();
+      return;
+    }
+
+    currentQNum++;
+    updateProgress();
+    setAiStatus("Sedang menyiapkan pertanyaan...");
+    showState("waiting");
+
+    try {
+      const res = await fetch("/interview/get-question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          position: POSITION,
+          company: COMPANY,
+          language: LANGUAGE,
+          session_data: {
+            question_num: currentQNum,
+            total_questions: TOTAL_Q,
+            answers: answers,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+
+      currentQuestion = data.question;
+
+      // Update sidebar preview
+      const prev = document.getElementById(`qprev-${currentQNum}`);
+      if (prev) prev.textContent = currentQuestion.substring(0, 40) + "...";
+
+      // Tampilkan bubble pertanyaan AI
+      appendAiBubble(currentQuestion, currentQNum);
+      setQDotStatus(currentQNum, "active");
+      setAiStatus("Siap menerima jawabanmu");
+
+      // Aktifkan tombol jawab
+      showState("ready");
+      document.getElementById("btn-end").disabled = false;
+    } catch (err) {
+      console.error("load question error:", err);
+      appendSystemBubble("❌ Gagal memuat pertanyaan: " + err.message);
+      setAiStatus("Error — coba refresh");
+    }
+  }
+
+  // =========================================
+  // MULAI REKAM JAWABAN
+  // =========================================
+  async function startAnswer() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      let mimeType = "audio/webm";
+      if (!MediaRecorder.isTypeSupported("audio/webm")) {
+        mimeType = MediaRecorder.isTypeSupported("audio/mp4")
+          ? "audio/mp4"
+          : "";
+      }
+
+      mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      audioChunks = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+      mediaRecorder.onstop = () => processAnswer(stream);
+      mediaRecorder.start(500);
+
+      isRecording = true;
+      answerStartTime = Date.now();
+      startAnswerTimer();
+
+      document.getElementById("btn-rec-start").disabled = true;
+      document.getElementById("btn-rec-stop").disabled = false;
+      document.getElementById("btn-rec-start").textContent =
+        "🔴 Sedang Merekam...";
+      document.getElementById("ans-status").textContent = "Merekam jawaban...";
+    } catch (err) {
+      alert("❌ Gagal akses mikrofon: " + err.message);
+    }
+  }
+
+  // =========================================
+  // STOP REKAM
+  // =========================================
+  function stopAnswer() {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      clearInterval(answerTimer);
+      isRecording = false;
+      document.getElementById("btn-rec-stop").disabled = true;
+    }
+  }
+
+  // =========================================
+  // PROSES JAWABAN (Upload + Transkripsi)
+  // =========================================
+  async function processAnswer(stream) {
+    stream.getTracks().forEach((t) => t.stop());
+    const duration = Math.floor((Date.now() - answerStartTime) / 1000);
+
+    showState("processing");
+    setProcMsg("Mengubah suara ke teks...");
+
+    try {
+      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "answer.webm");
+      formData.append("question", currentQuestion);
+      formData.append("q_num", currentQNum);
+
+      const res = await fetch("/interview/transcribe-answer", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!data.success) throw new Error(data.error);
+
+      const transcript = data.transcript;
+
+      // Simpan jawaban
+      answers.push({
+        question: currentQuestion,
+        answer: transcript,
+        q_num: currentQNum,
+        duration: duration,
+      });
+
+      // Tampilkan bubble jawaban user
+      appendUserBubble(transcript, duration);
+      setQDotStatus(currentQNum, "done");
+
+      // Lanjut ke pertanyaan berikutnya
+      setProcMsg("Memuat pertanyaan berikutnya...");
+      setTimeout(() => loadNextQuestion(), 1200);
+    } catch (err) {
+      console.error("processAnswer error:", err);
+      appendSystemBubble(
+        "❌ Gagal memproses jawaban: " +
+          err.message +
+          "\nJawaban akan dilewati.",
+      );
+      setQDotStatus(currentQNum, "skipped");
+      setTimeout(() => loadNextQuestion(), 2000);
+    }
+  }
+
+  // =========================================
+  // LEWATI PERTANYAAN
+  // =========================================
+  function skipQuestion() {
+    if (!confirm("Lewati pertanyaan ini?")) return;
+
+    answers.push({
+      question: currentQuestion,
+      answer: "[Dilewati oleh peserta]",
+      q_num: currentQNum,
+      duration: 0,
+    });
+
+    appendUserBubble("[Pertanyaan dilewati]", 0, true);
+    setQDotStatus(currentQNum, "skipped");
+    loadNextQuestion();
+  }
+
+  // =========================================
+  // AKHIRI SESI
+  // =========================================
+  function endSession() {
+    sessionEnded = true;
+    clearInterval(sessionTimerInterval);
+    updateProgress();
+    showState("done");
+    setAiStatus("Sesi selesai");
+
+    appendAiBubble(
+      `Terima kasih! Kamu telah menyelesaikan ${answers.filter((a) => a.answer !== "[Dilewati oleh peserta]").length} dari ${TOTAL_Q} pertanyaan. ` +
+        "Saya sedang menyiapkan analisis lengkap untukmu... 📊",
+      null,
+    );
+  }
+
+  function confirmEndSession() {
+    if (sessionEnded) {
+      finishSession();
+      return;
+    }
+    document.getElementById("modal-answered").textContent = answers.length;
+    document.getElementById("modal-end").style.display = "flex";
+  }
+
+  function closeModal() {
+    document.getElementById("modal-end").style.display = "none";
+  }
+
+  // =========================================
+  // KIRIM KE BACKEND UNTUK ANALISIS AKHIR
+  // =========================================
+  async function finishSession() {
+    closeModal();
+    if (isRecording) stopAnswer();
+    clearInterval(sessionTimerInterval);
+
+    if (answers.length === 0) {
+      alert("Belum ada jawaban yang direkam!");
+      return;
+    }
+
+    showState("processing");
+    setProcMsg(
+      "🤖 Gemini sedang menganalisis semua jawabanmu...\n\nProses ini membutuhkan 15-30 detik.",
+    );
+
+    try {
+      const res = await fetch("/interview/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ position: POSITION, company: COMPANY, answers }),
+      });
+      const data = await res.json();
+
+      if (!data.success) throw new Error(data.error);
+
+      // Redirect ke halaman hasil
+      window.location.href = `/interview/result/${data.session_id}`;
+    } catch (err) {
+      setProcMsg("❌ Gagal menganalisis: " + err.message);
+      console.error(err);
+    }
+  }
+
+  // =========================================
+  // HELPER: BUBBLE CHAT
+  // =========================================
+  function appendAiBubble(text, qNum) {
+    const chat = document.getElementById("iw-chat");
+    const div = document.createElement("div");
+    div.className = "iw-bubble ai-bubble";
+    div.innerHTML = `
+        <div class="bubble-avatar">🤖</div>
+        <div class="bubble-content">
+            ${qNum ? `<div class="bubble-q-label">Pertanyaan ${qNum}</div>` : ""}
+            <p>${escapeHtml(text)}</p>
+            <button class="bubble-tts-btn" onclick="speakText(this, \`${text.replace(/`/g, "'")}\`)" title="Dengarkan">
+                🔊
+            </button>
+        </div>`;
+    chat.appendChild(div);
+    setTimeout(() => div.classList.add("visible"), 10);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function appendUserBubble(text, duration, skipped = false) {
+    const chat = document.getElementById("iw-chat");
+    const div = document.createElement("div");
+    div.className = "iw-bubble user-bubble";
+    div.innerHTML = `
+        <div class="bubble-content user-content">
+            ${skipped ? '<div class="skipped-tag">⏭ Dilewati</div>' : ""}
+            <p>${escapeHtml(text)}</p>
+            ${duration > 0 ? `<div class="bubble-meta">⏱ ${duration} detik</div>` : ""}
+        </div>
+        <div class="bubble-avatar user-av">👤</div>`;
+    chat.appendChild(div);
+    setTimeout(() => div.classList.add("visible"), 10);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function appendSystemBubble(text) {
+    const chat = document.getElementById("iw-chat");
+    const div = document.createElement("div");
+    div.className = "iw-bubble sys-bubble";
+    div.innerHTML = `<p>${escapeHtml(text)}</p>`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  // =========================================
+  // HELPER: STATE & UI
+  // =========================================
+  function showState(name) {
+    ["waiting", "ready", "processing", "done"].forEach((s) => {
+      document.getElementById(`state-${s}`).style.display =
+        s === name ? "flex" : "none";
+    });
+    if (name === "ready") {
+      document.getElementById("btn-rec-start").disabled = false;
+      document.getElementById("btn-rec-stop").disabled = true;
+      document.getElementById("btn-rec-start").textContent =
+        "🎙️ Mulai Menjawab";
+      document.getElementById("ans-status").textContent = "Siap menjawab";
+      document.getElementById("ans-timer").textContent = "00:00";
+    }
+  }
+
+  function updateProgress() {
+    const done = answers.length;
+    const pct = Math.round((done / TOTAL_Q) * 100);
+    document.getElementById("prog-fill").style.width = `${pct}%`;
+    document.getElementById("prog-text").textContent = `${done} / ${TOTAL_Q}`;
+    document.getElementById("current-q-num").textContent = currentQNum;
+  }
+
+  function setQDotStatus(num, status) {
+    const dot = document.getElementById(`qdot-${num}`);
+    if (dot) dot.className = `iw-q-dot ${status}`;
+  }
+
+  function setAiStatus(text) {
+    document.getElementById("ai-status-text").textContent = text;
+  }
+
+  function setProcMsg(text) {
+    document.getElementById("proc-msg").innerHTML = text.replace(/\n/g, "<br>");
+  }
+
+  function startAnswerTimer() {
+    answerTimer = setInterval(() => {
+      const s = Math.floor((Date.now() - answerStartTime) / 1000);
+      const min = String(Math.floor(s / 60)).padStart(2, "0");
+      const sec = String(s % 60).padStart(2, "0");
+      document.getElementById("ans-timer").textContent = `${min}:${sec}`;
+    }, 1000);
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // TTS — baca pertanyaan dengan suara
+  function speakText(btn, text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = LANGUAGE === "en" ? "en-US" : "id-ID";
+    utt.rate = 0.9;
+    btn.textContent = "🔊";
+    utt.onend = () => {
+      btn.textContent = "🔊";
+    };
+    window.speechSynthesis.speak(utt);
+  }
+</script>
+{% endblock %}

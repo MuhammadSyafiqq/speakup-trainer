@@ -12,7 +12,7 @@ google_bp = make_google_blueprint(
     client_id="822893399626-tb3fmko3v6ue869kqkhd6f4ujfm6jndr.apps.googleusercontent.com",
     client_secret="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",
     scope=["profile", "email"],
-    redirect_to="auth.google_login"
+    redirect_to="auth.google_authorized"
 )
 auth_bp.register_blueprint(google_bp, url_prefix="/login")
 
@@ -31,6 +31,30 @@ def google_login():
         user = User.query.filter_by(email=email).first()
         if not user:
             # Buat user baru otomatis
+            user = User(username=email.split("@")[0], email=email)
+            db.session.add(user)
+            db.session.commit()
+
+        login_user(user)
+        flash(f'Selamat datang, {user.username}!', 'success')
+        return redirect(url_for('practice.dashboard'))
+
+    flash("Login Google gagal!", "danger")
+    return redirect(url_for('auth.login'))
+
+@auth_bp.route("/google/authorized")
+def google_authorized():
+    if not google.authorized:
+        return redirect(url_for("google.login"))
+
+    resp = google.get("/oauth2/v2/userinfo")
+    if resp.ok:
+        info = resp.json()
+        email = info.get("email")
+
+        # cek user
+        user = User.query.filter_by(email=email).first()
+        if not user:
             user = User(username=email.split("@")[0], email=email)
             db.session.add(user)
             db.session.commit()

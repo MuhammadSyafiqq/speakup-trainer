@@ -16,6 +16,10 @@ google_bp = make_google_blueprint(
 )
 auth_bp.register_blueprint(google_bp, url_prefix="/login")
 
+@auth_bp.route('/login/google')
+def login_google_redirect():
+    return redirect(url_for('google.login'))  # ini akan memulai OAuth
+
 # --- Login menggunakan Google ---
 @auth_bp.route('/google')
 def google_login():

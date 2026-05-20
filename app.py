@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from dotenv import load_dotenv
 import os, uuid
+from flask_dance.contrib.google import make_google_blueprint
 
 
 load_dotenv()

@@ -11,64 +11,34 @@ auth_bp = Blueprint('auth', __name__)
 google_bp = make_google_blueprint(
     client_id="822893399626-tb3fmko3v6ue869kqkhd6f4ujfm6jndr.apps.googleusercontent.com",
     client_secret="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",
-    scope=["profile", "email"],
-    redirect_to="auth.google_authorized"
+    scope=["profile", "email"]
 )
 auth_bp.register_blueprint(google_bp, url_prefix="/login")
 
-@auth_bp.route('/login/google')
-def login_google_redirect():
-    return redirect(url_for('google.login'))  # ini akan memulai OAuth
 
-# --- Login menggunakan Google ---
+# Route untuk memproses user setelah Google login
 @auth_bp.route('/google')
 def google_login():
     if not google.authorized:
-        return redirect(url_for("auth.google.login"))  # endpoint lengkap blueprint
+        return redirect(url_for("auth.google.login"))  # ini otomatis redirect ke Google
 
     resp = google.get("/oauth2/v2/userinfo")
-    if resp.ok:
-        info = resp.json()
-        email = info.get("email")
+    if not resp.ok:
+        flash("Login Google gagal!", "danger")
+        return redirect(url_for('auth.login'))
 
-        # Cek user berdasarkan email
-        user = User.query.filter_by(email=email).first()
-        if not user:
-            # Buat user baru otomatis
-            user = User(username=email.split("@")[0], email=email)
-            db.session.add(user)
-            db.session.commit()
+    info = resp.json()
+    email = info.get("email")
+    user = User.query.filter_by(email=email).first()
 
-        login_user(user)
-        flash(f'Selamat datang, {user.username}!', 'success')
-        return redirect(url_for('practice.dashboard'))
+    if not user:
+        user = User(username=email.split("@")[0], email=email)
+        db.session.add(user)
+        db.session.commit()
 
-    flash("Login Google gagal!", "danger")
-    return redirect(url_for('auth.login'))
-
-@auth_bp.route("/google/authorized")
-def google_authorized():
-    if not google.authorized:
-        return redirect(url_for("google.login"))
-
-    resp = google.get("/oauth2/v2/userinfo")
-    if resp.ok:
-        info = resp.json()
-        email = info.get("email")
-
-        # cek user
-        user = User.query.filter_by(email=email).first()
-        if not user:
-            user = User(username=email.split("@")[0], email=email)
-            db.session.add(user)
-            db.session.commit()
-
-        login_user(user)
-        flash(f'Selamat datang, {user.username}!', 'success')
-        return redirect(url_for('practice.dashboard'))
-
-    flash("Login Google gagal!", "danger")
-    return redirect(url_for('auth.login'))
+    login_user(user)
+    flash(f'Selamat datang, {user.username}!', 'success')
+    return redirect(url_for('practice.dashboard'))
 
 @auth_bp.route('/')
 def index():

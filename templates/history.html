@@ -100,6 +100,9 @@
             60)|int }}s</span
           >
           {% endif %}
+          {% if s.category == 'wawancara' %}
+          <span class="badge-interview">💼 Feedback per Pertanyaan</span>
+          {% endif %}
         </div>
         <div class="sr-scores-mini">
           <span title="Kejelasan">🗣️ {{ s.score_clarity|int }}</span>
@@ -109,11 +112,19 @@
         </div>
       </div>
       <div class="sr-actions">
+        {% if s.category == 'wawancara' %}
+        <a
+          href="{{ url_for('interview.result', session_id=s.id) }}"
+          class="btn-sm btn-interview"
+          >💼 Lihat</a
+        >
+        {% else %}
         <a
           href="{{ url_for('practice.result', session_id=s.id) }}"
           class="btn-sm"
           >Lihat</a
         >
+        {% endif %}
         <button onclick="deleteSession({{ s.id }})" class="btn-sm btn-danger">
           Hapus
         </button>
@@ -250,4 +261,28 @@
       });
   }
 </script>
+
+<style>
+  /* Badge eksklusif wawancara */
+  .badge-interview {
+    background: #ede9fe;
+    color: #6d28d9;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+    border: 1px solid #c4b5fd;
+  }
+
+  /* Tombol lihat khusus wawancara */
+  .btn-interview {
+    background: #6d28d9;
+    color: #fff !important;
+    border-color: #6d28d9;
+  }
+  .btn-interview:hover {
+    background: #5b21b6;
+    border-color: #5b21b6;
+  }
+</style>
 {% endblock %}

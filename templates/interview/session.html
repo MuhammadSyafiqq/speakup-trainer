@@ -141,7 +141,7 @@
                 <div class="iw-proc-anim">
                     <div class="proc-ring"></div>
                 </div>
-                <p id="proc-msg">Memproses jawabanmu...</p>
+                <p id="proc-msg">Menyimpan jawaban...</p>
             </div>
 
             <!-- State: Sesi selesai -->
@@ -186,7 +186,7 @@ const LANGUAGE   = document.getElementById('hd-lang').value;
 
 // State
 let currentQNum    = 0;
-let answers        = [];
+let answers        = [];   // { question, answer:'[audio direkam]', filename, q_num, duration }
 let currentQuestion= '';
 let mediaRecorder  = null;
 let audioChunks    = [];
@@ -248,6 +248,7 @@ async function loadNextQuestion() {
             })
         });
 
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error);
 
@@ -262,7 +263,6 @@ async function loadNextQuestion() {
         setQDotStatus(currentQNum, 'active');
         setAiStatus('Siap menerima jawabanmu');
 
-        // Aktifkan tombol jawab
         showState('ready');
         document.getElementById('btn-end').disabled = false;
 
@@ -336,7 +336,6 @@ function pauseAnswer() {
     mediaRecorder.requestData();
     mediaRecorder.stop();
 
-    // Akumulasi waktu aktif
     if (answerSegStart) {
         answerActiveSecs += Math.floor((Date.now() - answerSegStart) / 1000);
         answerSegStart = null;
@@ -393,49 +392,56 @@ function stopAnswer() {
     document.getElementById('btn-rec-pause').style.display  = 'none';
     document.getElementById('btn-rec-resume').style.display = 'none';
 
-    // Beri waktu chunk terakhir masuk lalu proses
-    setTimeout(() => processAnswer(answerActiveSecs), 300);
+    // Beri waktu chunk terakhir masuk lalu simpan audio
+    setTimeout(() => saveAnswerAudio(answerActiveSecs), 300);
 }
 
 // =========================================
-// PROSES JAWABAN
+// SIMPAN AUDIO KE SERVER (TANPA TRANSKRIPSI)
+// Hemat kuota: tidak ada AI call di sini.
+// Transkripsi dilakukan batch di akhir sesi.
 // =========================================
-async function processAnswer(duration) {
+async function saveAnswerAudio(duration) {
     showState('processing');
-    setProcMsg('Mengubah suara ke teks...');
+    setProcMsg('Menyimpan jawaban...');
 
     try {
         const mimeType  = answerAudioChunks.length > 0 && answerAudioChunks[0].type
                           ? answerAudioChunks[0].type : 'audio/webm';
         const audioBlob = new Blob(answerAudioChunks, { type: mimeType });
         const formData  = new FormData();
-        formData.append('audio',    audioBlob, 'answer.webm');
-        formData.append('question', currentQuestion);
-        formData.append('q_num',    currentQNum);
+        formData.append('audio', audioBlob, 'answer.webm');
+        formData.append('q_num', currentQNum);
 
-        const res  = await fetch('/interview/transcribe-answer', {
+        const res  = await fetch('/interview/save-audio', {
             method: 'POST', body: formData
         });
+
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error);
 
-        const transcript = data.transcript;
+        // Simpan referensi jawaban — teks placeholder, filename untuk transkripsi nanti
         answers.push({
-            question: currentQuestion,
-            answer  : transcript,
-            q_num   : currentQNum,
-            duration: duration || answerActiveSecs,
+            question    : currentQuestion,
+            answer      : '[audio direkam]',
+            filename    : data.filename,
+            question_num: currentQNum,
+            duration    : duration || answerActiveSecs,
         });
 
-        appendUserBubble(transcript, duration || answerActiveSecs);
+        // Tampilkan bubble konfirmasi (tanpa teks transkripsi)
+        appendUserBubble('🎙️ Jawaban direkam', duration || answerActiveSecs);
         setQDotStatus(currentQNum, 'done');
+
         setProcMsg('Memuat pertanyaan berikutnya...');
-        setTimeout(() => loadNextQuestion(), 1200);
+        setTimeout(() => loadNextQuestion(), 800);
 
     } catch (err) {
-        console.error('processAnswer error:', err);
-        appendSystemBubble('❌ Gagal memproses jawaban: ' + err.message);
+        console.error('saveAnswerAudio error:', err);
+        appendSystemBubble('❌ Gagal menyimpan jawaban: ' + err.message);
         setQDotStatus(currentQNum, 'skipped');
+        // Tetap lanjut ke pertanyaan berikutnya meski simpan gagal
         setTimeout(() => loadNextQuestion(), 2000);
     }
 }
@@ -447,10 +453,11 @@ function skipQuestion() {
     if (!confirm('Lewati pertanyaan ini?')) return;
 
     answers.push({
-        question : currentQuestion,
-        answer   : '[Dilewati oleh peserta]',
-        q_num    : currentQNum,
-        duration : 0,
+        question    : currentQuestion,
+        answer      : '[Dilewati oleh peserta]',
+        filename    : '',
+        question_num: currentQNum,
+        duration    : 0,
     });
 
     appendUserBubble('[Pertanyaan dilewati]', 0, true);
@@ -470,7 +477,7 @@ function endSession() {
 
     appendAiBubble(
         `Terima kasih! Kamu telah menyelesaikan ${answers.filter(a => a.answer !== '[Dilewati oleh peserta]').length} dari ${TOTAL_Q} pertanyaan. ` +
-        'Saya sedang menyiapkan analisis lengkap untukmu... 📊',
+        'Klik tombol di bawah — saya akan mentranskripsi dan menganalisis semua jawabanmu sekaligus... 📊',
         null
     );
 }
@@ -486,7 +493,9 @@ function closeModal() {
 }
 
 // =========================================
-// KIRIM KE BACKEND UNTUK ANALISIS AKHIR
+// KIRIM KE BACKEND UNTUK TRANSKRIPSI BATCH + ANALISIS
+// Satu kali kirim di akhir sesi — hemat kuota OpenRouter.
+// Backend akan: transkripsi semua audio → analisis → simpan DB
 // =========================================
 async function finishSession() {
     closeModal();
@@ -499,14 +508,29 @@ async function finishSession() {
     }
 
     showState('processing');
-    setProcMsg('🤖 Gemini sedang menganalisis semua jawabanmu...\n\nProses ini membutuhkan 15-30 detik.');
+    setProcMsg('🤖 Mentranskripsi & menganalisis semua jawabanmu...\n\nProses ini membutuhkan 20-40 detik.');
 
     try {
+        // Kirim semua jawaban sekaligus — termasuk filename untuk transkripsi batch
+        const payload = {
+            position: POSITION,
+            company : COMPANY,
+            answers : answers.map(a => ({
+                question_num: a.question_num,
+                question    : a.question,
+                filename    : a.filename || '',
+                answer      : a.answer,
+                duration    : a.duration,
+            }))
+        };
+
         const res  = await fetch('/interview/analyze', {
             method : 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body   : JSON.stringify({ position: POSITION, company: COMPANY, answers })
+            body   : JSON.stringify(payload)
         });
+
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
         const data = await res.json();
 
         if (!data.success) throw new Error(data.error);
@@ -574,7 +598,6 @@ function showState(name) {
         document.getElementById(`state-${s}`).style.display = s === name ? 'flex' : 'none';
     });
     if (name === 'ready') {
-        // Reset semua tombol jawaban
         answerAudioChunks  = [];
         answerIsPaused     = false;
         answerActiveSecs   = 0;
@@ -593,7 +616,7 @@ function showState(name) {
     }
 }
 
-// Keyboard shortcuts untuk interview
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     const stateReady = document.getElementById('state-ready').style.display !== 'none';
@@ -649,7 +672,7 @@ function escapeHtml(str) {
         .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// TTS — baca pertanyaan dengan suara
+// TTS
 function speakText(btn, text) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();

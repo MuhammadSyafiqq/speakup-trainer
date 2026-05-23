@@ -1,0 +1,52 @@
+{# templates/auth/resend_verification.html #}
+{% extends 'base.html' %}
+{% block title %}Kirim Ulang Verifikasi — SpeakUp{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+
+    <div class="auth-header">
+      <div class="auth-icon">📧</div>
+      <h1>Kirim Ulang Verifikasi</h1>
+      <p>Masukkan email yang kamu daftarkan dan kami akan kirim ulang link verifikasinya</p>
+    </div>
+
+    {# ── Flash messages ── #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message | safe }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {# ── Info box ── #}
+    <div class="info-box">
+      <span class="info-icon">💡</span>
+      <span>Link verifikasi berlaku <strong>24 jam</strong>. Cek folder <strong>Spam</strong> jika tidak muncul di inbox.</span>
+    </div>
+
+    <form method="POST" class="auth-form" novalidate>
+      <div class="form-group">
+        <label for="email">Alamat Email</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          placeholder="email@contoh.com"
+          required
+          autocomplete="email"
+          autofocus
+        >
+      </div>
+      <button type="submit" class="btn-auth">Kirim Ulang Link Verifikasi 📨</button>
+    </form>
+
+    <div class="auth-footer">
+      <a href="{{ url_for('auth.login') }}" class="link-back">← Kembali ke Login</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,14 +1,44 @@
-from flask import Blueprint, request, jsonify, Response, stream_with_context
+from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-import google.generativeai as genai
+import requests
 import os
 import json
 
 agent_bp = Blueprint('agent', __name__)
 
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.5-flash')
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
+OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+OPENROUTER_MODEL   = 'google/gemini-2.5-flash-lite'
+
+
+def call_openrouter(messages: list) -> str:
+    """Helper: kirim messages ke OpenRouter dan kembalikan teks response."""
+    headers = {
+        'Authorization': f'Bearer {OPENROUTER_API_KEY}',
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://speakup.app',  # dianjurkan OpenRouter
+        'X-Title': 'SpeakUp',
+    }
+    payload = {
+        'model': OPENROUTER_MODEL,
+        'messages': messages,
+        'max_tokens': 4096,
+    }
+    response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
+
+    if not response.ok:
+        # Cetak body error agar mudah debug di terminal
+        print(f"OpenRouter error {response.status_code}: {response.text}")
+        response.raise_for_status()
+
+    data = response.json()
+
+    # Tangani error yang dikembalikan di dalam JSON (bukan HTTP error)
+    if 'error' in data:
+        raise Exception(f"OpenRouter API error: {data['error']}")
+
+    return data['choices'][0]['message']['content']
+
 
 # ============================================
 # SYSTEM PROMPT — Karakter AI Agent SpeakUp
@@ -78,55 +108,42 @@ QUICK_PROMPTS = {
 
 
 # ============================================
-# ENDPOINT: KIRIM PESAN KE AI AGENT (STREAMING)
+# ENDPOINT: KIRIM PESAN KE AI AGENT
 # ============================================
 @agent_bp.route('/agent/chat', methods=['POST'])
 @login_required
 def chat():
-    """
-    Endpoint utama chat dengan AI Agent.
-    Mendukung streaming response agar terasa real-time.
-    """
     try:
         data     = request.get_json()
-        messages = data.get('messages', [])  # history chat
+        history  = data.get('messages', [])
         user_msg = data.get('message', '').strip()
 
         if not user_msg:
             return jsonify({'error': 'Pesan tidak boleh kosong'}), 400
 
-        if not GEMINI_API_KEY or GEMINI_API_KEY.startswith('AIzaSy_xxx'):
-            return jsonify({'error': 'GEMINI_API_KEY belum dikonfigurasi'}), 500
+        if not OPENROUTER_API_KEY or OPENROUTER_API_KEY.startswith('sk-or-xxx'):
+            return jsonify({'error': 'OPENROUTER_API_KEY belum dikonfigurasi'}), 500
 
-        # Bangun history chat untuk Gemini (multi-turn conversation)
-        chat_history = []
-        for msg in messages:
-            role    = 'user' if msg['role'] == 'user' else 'model'
-            content = msg['content']
-            chat_history.append({'role': role, 'parts': [content]})
+        # ── Bangun isi percakapan multi-turn ──
+        # System prompt sebagai pesan pertama dengan role 'system'
+        messages = [{'role': 'system', 'content': SYSTEM_PROMPT}]
 
-        # Mulai chat session dengan history
-        chat_session = model.start_chat(history=chat_history)
+        # Tambahkan history (maks 10 pesan terakhir)
+        for msg in history[-10:]:
+            role = 'user' if msg['role'] == 'user' else 'assistant'
+            messages.append({'role': role, 'content': msg['content']})
 
-        # Kirim pesan dengan system prompt sebagai konteks
-        full_prompt = f"{SYSTEM_PROMPT}\n\n---\n\nPesan dari pengguna ({current_user.username}):\n{user_msg}"
+        # Tambahkan pesan user baru
+        full_user_msg = f"Pesan dari pengguna ({current_user.username}):\n{user_msg}"
+        messages.append({'role': 'user', 'content': full_user_msg})
 
-        # Generate response (non-streaming untuk simplicity & compatibility)
-        response = chat_session.send_message(full_prompt)
-        reply    = response.text
+        reply = call_openrouter(messages)
 
-        return jsonify({
-            'success': True,
-            'reply'  : reply,
-            'role'   : 'assistant'
-        })
+        return jsonify({'success': True, 'reply': reply, 'role': 'assistant'})
 
     except Exception as e:
-        print(f"❌ Agent chat error: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error'  : f'Terjadi kesalahan: {str(e)}'
-        }), 500
+        print(f"Agent chat error: {str(e)}")
+        return jsonify({'success': False, 'error': f'Terjadi kesalahan: {str(e)}'}), 500
 
 
 # ============================================
@@ -135,7 +152,6 @@ def chat():
 @agent_bp.route('/agent/quick-prompt/<category>', methods=['GET'])
 @login_required
 def get_quick_prompt(category):
-    """Ambil template pesan awal untuk tiap kategori"""
     prompt = QUICK_PROMPTS.get(category)
     if not prompt:
         return jsonify({'error': 'Kategori tidak ditemukan'}), 404
@@ -148,10 +164,6 @@ def get_quick_prompt(category):
 @agent_bp.route('/agent/generate', methods=['POST'])
 @login_required
 def generate_naskah():
-    """
-    Generate naskah langsung dengan parameter spesifik.
-    Digunakan untuk quick generate tanpa percakapan panjang.
-    """
     try:
         data     = request.get_json()
         category = data.get('category', 'pidato')
@@ -171,37 +183,25 @@ def generate_naskah():
             'mc'          : 'Master of Ceremony (MC)',
             'storytelling': 'Storytelling',
         }
-
         cat_label = category_labels.get(category, category)
 
-        prompt = f"""{SYSTEM_PROMPT}
+        prompt = f"""Tolong buatkan naskah {cat_label} dengan spesifikasi berikut:
 
----
+TOPIK   : {topic}
+DURASI  : {duration}
+AUDIENS : {audience}
+CATATAN : {notes if notes else 'Tidak ada catatan khusus'}
 
-Tolong buatkan naskah {cat_label} dengan spesifikasi berikut:
+Buat naskah yang lengkap, menarik, dan siap untuk langsung dibacakan."""
 
-📝 TOPIK     : {topic}
-⏱️ DURASI    : {duration}
-👥 AUDIENS   : {audience}
-📌 CATATAN   : {notes if notes else 'Tidak ada catatan khusus'}
+        messages = [
+            {'role': 'system', 'content': SYSTEM_PROMPT},
+            {'role': 'user',   'content': prompt},
+        ]
+        naskah = call_openrouter(messages)
 
-Buat naskah yang lengkap, menarik, dan siap untuk langsung dibacakan.
-Sertakan:
-1. Naskah lengkap dengan formatting yang jelas
-2. Estimasi waktu per bagian
-3. Tips delivery dan gestur yang disarankan
-4. Kata kunci yang perlu ditekankan (bold/caps)"""
-
-        response = model.generate_content(prompt)
-        naskah   = response.text
-
-        return jsonify({
-            'success': True,
-            'naskah' : naskah,
-            'category': cat_label,
-            'topic'  : topic,
-        })
+        return jsonify({'success': True, 'naskah': naskah, 'category': cat_label, 'topic': topic})
 
     except Exception as e:
-        print(f"❌ Generate naskah error: {str(e)}")
+        print(f"Generate naskah error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500

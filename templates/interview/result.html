@@ -1,297 +1,330 @@
-{% extends 'base.html' %} {% block title %}Hasil Wawancara — SpeakUp{% endblock
-%} {% block content %} {% set fb = session.get_feedback() %} {% set grade,
-grade_text = session.get_grade() %} {% set per_ans =
-fb.get('per_answer_feedback', []) %}
+{% extends 'base.html' %}
+{% block title %}Hasil Wawancara — SpeakUp{% endblock %}
+{% block content %}
+
+{% set fb    = session.get_feedback() %}
+{% set grade, grade_text = session.get_grade() %}
+{% set per_ans = fb.get('per_answer_feedback', []) %}
 
 <div class="page-container">
-  <!-- Breadcrumb -->
-  <div class="breadcrumb">
-    <a href="{{ url_for('practice.dashboard') }}">Dashboard</a>
-    <span>›</span>
-    <a href="{{ url_for('history.history') }}">Riwayat</a>
-    <span>›</span>
-    <span>Hasil Wawancara</span>
-  </div>
 
-  <!-- ── HERO ── -->
-  <div class="hero-result">
-    <div class="hero-left">
-      <div class="hero-meta">
-        <span class="badge-category">Wawancara Kerja</span>
-        <span class="hero-date"
-          >{{ session.created_at.strftime('%d %B %Y, %H:%M') }}</span
-        >
-        {% if session.duration_seconds > 0 %}
-        <span class="hero-duration"
-          >⏱ {{ (session.duration_seconds // 60)|int }}m {{
-          (session.duration_seconds % 60)|int }}s</span
-        >
-        {% endif %}
-      </div>
-      <h1 class="hero-topic">{{ session.title }}</h1>
-      <div class="hero-ai-tag">🤖 Dianalisis oleh Gemini 1.5 Flash</div>
-
-      <!-- Hiring Recommendation -->
-      {% set hire_rec = fb.get('hiring_recommendation', '') %} {% if hire_rec %}
-      <div
-        class="hire-rec-badge {% if 'Sangat' in hire_rec %}hire-great {% elif 'Direkomendasikan' in hire_rec %}hire-good {% elif 'Dipertimbangkan' in hire_rec %}hire-ok {% else %}hire-no{% endif %}"
-      >
-        {% if 'Sangat' in hire_rec %}⭐⭐⭐ {% elif 'Direkomendasikan' in
-        hire_rec %}⭐⭐ {% elif 'Dipertimbangkan' in hire_rec %}⭐ {% else
-        %}❌{% endif %} {{ hire_rec }}
-      </div>
-      {% if fb.get('hiring_reason') %}
-      <div class="hire-reason">{{ fb.get('hiring_reason') }}</div>
-      {% endif %} {% endif %}
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <a href="{{ url_for('practice.dashboard') }}">Dashboard</a>
+        <span>›</span>
+        <a href="{{ url_for('history.history') }}">Riwayat</a>
+        <span>›</span>
+        <span>Hasil Wawancara</span>
     </div>
 
-    <div class="hero-score-block">
-      <div class="big-score-ring grade-{{ grade }}">
-        <svg viewBox="0 0 120 120" class="ring-svg">
-          <circle cx="60" cy="60" r="52" class="ring-bg" />
-          <circle
-            cx="60"
-            cy="60"
-            r="52"
-            class="ring-fill"
-            stroke-dasharray="{{ (session.score_total / 100 * 326.7)|int }} 326.7"
-            stroke-dashoffset="81.7"
-          />
-        </svg>
-        <div class="ring-content">
-          <div class="ring-num">{{ session.score_total|int }}</div>
-          <div class="ring-label">/ 100</div>
-        </div>
-      </div>
-      <div class="grade-tag grade-{{ grade }}">Grade {{ grade }}</div>
-      <div class="grade-desc">{{ grade_text }}</div>
-    </div>
-  </div>
-
-  <!-- Summary -->
-  {% if fb.get('summary') %}
-  <div class="card iw-summary-card">
-    <div class="card-header">
-      <span class="card-icon">📋</span>
-      <h2>Ringkasan Performa</h2>
-    </div>
-    <p class="iw-summary-text">{{ fb.get('summary') }}</p>
-  </div>
-  {% endif %}
-
-  <!-- Skor per Aspek + Radar -->
-  <div class="two-col-grid">
-    <div class="card">
-      <div class="card-header">
-        <span class="card-icon">📊</span>
-        <h2>Skor per Aspek</h2>
-      </div>
-      <div class="score-bars">
-        {% set aspects = [ ('Komunikasi', session.score_clarity, '🗣️'),
-        ('Struktur Jawaban', session.score_structure, '📋'), ('Kepercayaan
-        Diri', session.score_confidence, '💪'), ('Relevansi Jawaban',
-        session.score_relevance, '🎯'), ('Kosakata & Diksi',
-        session.score_vocabulary, '📚'), ] %} {% for label, score, icon in
-        aspects %}
-        <div class="score-bar-row">
-          <div class="bar-label-row">
-            <span class="bar-icon">{{ icon }}</span>
-            <span class="bar-name">{{ label }}</span>
-            <span
-              class="bar-val {% if score>=80 %}val-high{% elif score>=60 %}val-mid{% else %}val-low{% endif %}"
-            >
-              {{ score|int }}
-            </span>
-          </div>
-          <div class="bar-track">
-            <div
-              class="bar-fill {% if score>=80 %}fill-high{% elif score>=60 %}fill-mid{% else %}fill-low{% endif %}"
-              style="width:{{ score }}%"
-            ></div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <div class="card chart-card">
-      <div class="card-header">
-        <span class="card-icon">🕸️</span>
-        <h2>Peta Kemampuan</h2>
-      </div>
-      <div class="radar-wrap">
-        <canvas id="radarChart"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── FEEDBACK PER PERTANYAAN ── -->
-  {% if per_ans %}
-  <div class="card">
-    <div class="card-header">
-      <span class="card-icon">🔍</span>
-      <h2>Feedback per Pertanyaan</h2>
-    </div>
-    <div class="iw-per-ans-list">
-      {% for item in per_ans %}
-      <div class="iw-ans-item">
-        <div class="iw-ans-header" onclick="toggleAns({{ loop.index }})">
-          <div class="iw-ans-left">
-            <div class="iw-ans-num">Q{{ item.question_num }}</div>
-            <div class="iw-ans-q">{{ item.question }}</div>
-          </div>
-          <div class="iw-ans-right">
-            <div
-              class="iw-ans-score {% if item.score >= 80 %}ans-high {% elif item.score >= 60 %}ans-mid {% else %}ans-low{% endif %}"
-            >
-              {{ item.score }}
+    <!-- ── HERO ── -->
+    <div class="hero-result">
+        <div class="hero-left">
+            <div class="hero-meta">
+                <span class="badge-category">Wawancara Kerja</span>
+                <span class="hero-date">{{ session.created_at.strftime('%d %B %Y, %H:%M') }}</span>
+                {% if session.duration_seconds > 0 %}
+                <span class="hero-duration">⏱ {{ (session.duration_seconds // 60)|int }}m {{ (session.duration_seconds % 60)|int }}s</span>
+                {% endif %}
             </div>
-            <span class="iw-ans-toggle" id="toggle-{{ loop.index }}">▼</span>
-          </div>
+            <h1 class="hero-topic">{{ session.title }}</h1>
+            <div class="hero-ai-tag">🤖 Dianalisis oleh Gemini 1.5 Flash</div>
+
+            <!-- Hiring Recommendation -->
+            {% set hire_rec = fb.get('hiring_recommendation', '') %}
+            {% if hire_rec %}
+            <div class="hire-rec-badge
+                {% if 'Sangat' in hire_rec %}hire-great
+                {% elif 'Direkomendasikan' in hire_rec %}hire-good
+                {% elif 'Dipertimbangkan' in hire_rec %}hire-ok
+                {% else %}hire-no{% endif %}">
+                {% if 'Sangat' in hire_rec %}⭐⭐⭐
+                {% elif 'Direkomendasikan' in hire_rec %}⭐⭐
+                {% elif 'Dipertimbangkan' in hire_rec %}⭐
+                {% else %}❌{% endif %}
+                {{ hire_rec }}
+            </div>
+            {% if fb.get('hiring_reason') %}
+            <div class="hire-reason">{{ fb.get('hiring_reason') }}</div>
+            {% endif %}
+            {% endif %}
         </div>
-        <div class="iw-ans-body" id="ans-body-{{ loop.index }}">
-          <div class="iw-ans-transcript">
-            <strong>Jawaban kamu:</strong>
-            <p>{{ item.answer_summary }}</p>
-          </div>
-          {% if item.highlight %}
-          <div class="iw-ans-highlight">
-            ✨ <strong>Kalimat terbaik:</strong> "{{ item.highlight }}"
-          </div>
-          {% endif %}
-          <div class="iw-ans-feedback">
-            <strong>Feedback:</strong>
-            <p>{{ item.feedback }}</p>
-          </div>
+
+        <div class="hero-score-block">
+            <div class="big-score-ring grade-{{ grade }}">
+                <svg viewBox="0 0 120 120" class="ring-svg">
+                    <circle cx="60" cy="60" r="52" class="ring-bg"/>
+                    <circle cx="60" cy="60" r="52" class="ring-fill"
+                        stroke-dasharray="{{ (session.score_total / 100 * 326.7)|int }} 326.7"
+                        stroke-dashoffset="81.7"/>
+                </svg>
+                <div class="ring-content">
+                    <div class="ring-num">{{ session.score_total|int }}</div>
+                    <div class="ring-label">/ 100</div>
+                </div>
+            </div>
+            <div class="grade-tag grade-{{ grade }}">Grade {{ grade }}</div>
+            <div class="grade-desc">{{ grade_text }}</div>
         </div>
-      </div>
-      {% endfor %}
     </div>
-  </div>
-  {% endif %}
 
-  <!-- Kelebihan & Kekurangan -->
-  <div class="two-col-grid">
-    <div class="card strength-card">
-      <div class="card-header">
-        <span class="card-icon">✅</span>
-        <h2>Kelebihan</h2>
-      </div>
-      <div class="prose-content">
-        {% for item in session.strengths.split(' | ') if session.strengths %}
-        <div class="prose-item good">{{ item }}</div>
-        {% endfor %}
-      </div>
+    <!-- Summary -->
+    {% if fb.get('summary') %}
+    <div class="card iw-summary-card">
+        <div class="card-header"><span class="card-icon">📋</span><h2>Ringkasan Performa</h2></div>
+        <p class="iw-summary-text">{{ fb.get('summary') }}</p>
     </div>
-    <div class="card weakness-card">
-      <div class="card-header">
-        <span class="card-icon">⚠️</span>
-        <h2>Area Perbaikan</h2>
-      </div>
-      <div class="prose-content">
-        {% for item in session.weaknesses.split(' | ') if session.weaknesses %}
-        <div class="prose-item warn">{{ item }}</div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
+    {% endif %}
 
-  <!-- Tips -->
-  {% if fb.get('tips') %}
-  <div class="card suggest-card">
-    <div class="card-header">
-      <span class="card-icon">💡</span>
-      <h2>Tips untuk Wawancara Berikutnya</h2>
-    </div>
-    <div class="suggest-list">
-      {% for tip in fb.get('tips', []) %}
-      <div class="suggest-item">
-        <span class="suggest-bullet">→</span>
-        <span>{{ tip }}</span>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
+    <!-- Skor per Aspek + Radar -->
+    <div class="two-col-grid">
+        <div class="card">
+            <div class="card-header"><span class="card-icon">📊</span><h2>Skor per Aspek</h2></div>
+            <div class="score-bars">
+                {% set aspects = [
+                    ('Komunikasi', session.score_clarity, '🗣️'),
+                    ('Struktur Jawaban', session.score_structure, '📋'),
+                    ('Kepercayaan Diri', session.score_confidence, '💪'),
+                    ('Relevansi Jawaban', session.score_relevance, '🎯'),
+                    ('Kosakata & Diksi', session.score_vocabulary, '📚'),
+                ] %}
+                {% for label, score, icon in aspects %}
+                <div class="score-bar-row">
+                    <div class="bar-label-row">
+                        <span class="bar-icon">{{ icon }}</span>
+                        <span class="bar-name">{{ label }}</span>
+                        <span class="bar-val {% if score>=80 %}val-high{% elif score>=60 %}val-mid{% else %}val-low{% endif %}">
+                            {{ score|int }}
+                        </span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill {% if score>=80 %}fill-high{% elif score>=60 %}fill-mid{% else %}fill-low{% endif %}"
+                             style="width:{{ score }}%"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
 
-  <!-- Transkrip Lengkap -->
-  {% if session.transcript %}
-  <div class="card">
-    <div class="card-header">
-      <span class="card-icon">📝</span>
-      <h2>Rekap Percakapan</h2>
+        <div class="card chart-card">
+            <div class="card-header"><span class="card-icon">🕸️</span><h2>Peta Kemampuan</h2></div>
+            <div class="radar-wrap">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
     </div>
-    <div class="transcript iw-transcript">{{ session.transcript }}</div>
-  </div>
-  {% endif %}
 
-  <!-- Aksi -->
-  <div class="action-row">
-    <a href="{{ url_for('interview.setup') }}" class="btn-primary"
-      >🔄 Wawancara Lagi</a
-    >
-    <a href="{{ url_for('practice.select_category') }}" class="btn-secondary"
-      >🎤 Kategori Lain</a
-    >
-    <a href="{{ url_for('history.history') }}" class="btn-outline"
-      >📋 Riwayat</a
-    >
-  </div>
+    <!-- ── FEEDBACK PER PERTANYAAN ── -->
+    {% if per_ans %}
+    <div class="card">
+        <div class="card-header"><span class="card-icon">🔍</span><h2>Feedback per Pertanyaan</h2></div>
+        <div class="iw-per-ans-list">
+            {% for item in per_ans %}
+            <div class="iw-ans-item">
+                <div class="iw-ans-header" onclick="toggleAns({{ loop.index }})">
+                    <div class="iw-ans-left">
+                        <div class="iw-ans-num">Q{{ item.question_num }}</div>
+                        <div class="iw-ans-q">{{ item.question }}</div>
+                    </div>
+                    <div class="iw-ans-right">
+                        <div class="iw-ans-score
+                            {% if item.score >= 80 %}ans-high
+                            {% elif item.score >= 60 %}ans-mid
+                            {% else %}ans-low{% endif %}">
+                            {{ item.score }}
+                        </div>
+                        <span class="iw-ans-toggle" id="toggle-{{ loop.index }}">▼</span>
+                    </div>
+                </div>
+                <div class="iw-ans-body" id="ans-body-{{ loop.index }}">
+                    <div class="iw-ans-transcript">
+                        <strong>Jawaban kamu:</strong>
+                        <p>{{ item.answer_summary }}</p>
+                    </div>
+                    {% if item.highlight %}
+                    <div class="iw-ans-highlight">
+                        ✨ <strong>Kalimat terbaik:</strong> "{{ item.highlight }}"
+                    </div>
+                    {% endif %}
+                    <div class="iw-ans-feedback">
+                        <strong>Feedback:</strong>
+                        <p>{{ item.feedback }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Kelebihan & Kekurangan -->
+    <div class="two-col-grid">
+        <div class="card strength-card">
+            <div class="card-header"><span class="card-icon">✅</span><h2>Kelebihan</h2></div>
+            <div class="prose-content">
+                {% if session.strengths %}
+                    {% for item in session.strengths.split(' | ') %}
+                    {% if item.strip() %}
+                    <div class="prose-item good">{{ item.strip() | replace('**','') | replace('*','') }}</div>
+                    {% endif %}
+                    {% endfor %}
+                {% else %}
+                <p class="text-muted">Tidak tersedia</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card weakness-card">
+            <div class="card-header"><span class="card-icon">⚠️</span><h2>Area Perbaikan</h2></div>
+            <div class="prose-content">
+                {% if session.weaknesses %}
+                    {% for item in session.weaknesses.split(' | ') %}
+                    {% if item.strip() %}
+                    <div class="prose-item warn">{{ item.strip() | replace('**','') | replace('*','') }}</div>
+                    {% endif %}
+                    {% endfor %}
+                {% else %}
+                <p class="text-muted">Tidak tersedia</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Tips -->
+    {% if fb.get('tips') %}
+    <div class="card suggest-card">
+        <div class="card-header"><span class="card-icon">💡</span><h2>Tips untuk Wawancara Berikutnya</h2></div>
+        <div class="suggest-list">
+            {% for tip in fb.get('tips', []) %}
+            {% set tip_clean = tip | replace('**','') | replace('*','') %}
+            <div class="suggest-item">
+                <span class="suggest-bullet">→</span>
+                <span>{{ tip_clean }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% elif session.suggestions %}
+    <div class="card suggest-card">
+        <div class="card-header"><span class="card-icon">💡</span><h2>Saran Perbaikan</h2></div>
+        <div class="suggest-list">
+            {% for line in session.suggestions.split('\n') if line.strip() %}
+            <div class="suggest-item">
+                <span class="suggest-bullet">→</span>
+                <span>{{ line.strip().lstrip('•').strip() }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── FEEDBACK DETAIL PER ASPEK ── -->
+    {% set fd = fb.get('feedback_detail', {}) %}
+    {% if not fd %}
+        {% set fd = fb %}
+    {% endif %}
+    {% set has_detail = fd.get('clarity') or fd.get('structure') or fd.get('confidence') or fd.get('relevance') or fd.get('vocabulary') or fd.get('fluency') %}
+    {% if has_detail %}
+    <div class="card">
+        <div class="card-header">
+            <span class="card-icon">🔍</span>
+            <h2>Feedback Detail per Aspek</h2>
+        </div>
+        <div class="detail-grid">
+            {% set detail_items = [
+                ('🗣️', 'Kejelasan Komunikasi', fd.get('clarity', ''),    'detail-clarity'),
+                ('📋', 'Struktur Jawaban',     fd.get('structure', ''),  'detail-structure'),
+                ('💪', 'Kepercayaan Diri',     fd.get('confidence', ''), 'detail-confidence'),
+                ('🎯', 'Relevansi Jawaban',    fd.get('relevance', ''),  'detail-relevance'),
+                ('📚', 'Kosakata & Diksi',     fd.get('vocabulary', ''), 'detail-vocabulary'),
+                ('🌊', 'Kelancaran Bicara',    fd.get('fluency', ''),    'detail-fluency'),
+            ] %}
+            {% for icon, label, text, cls in detail_items %}
+            {% if text and text not in ('Tidak tersedia', '-', '') %}
+            <div class="detail-item {{ cls }}">
+                <div class="detail-head">
+                    <span>{{ icon }}</span>
+                    <strong>{{ label }}</strong>
+                </div>
+                <p>{{ text }}</p>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Transkrip Lengkap -->
+    {% if session.transcript %}
+    <div class="card">
+        <div class="card-header"><span class="card-icon">📝</span><h2>Rekap Percakapan</h2></div>
+        <div class="transcript iw-transcript">{{ session.transcript }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Aksi -->
+    <div class="action-row">
+        <a href="{{ url_for('interview.setup') }}" class="btn-primary">🔄 Wawancara Lagi</a>
+        <a href="{{ url_for('practice.select_category') }}" class="btn-secondary">🎤 Kategori Lain</a>
+        <a href="{{ url_for('history.history') }}" class="btn-outline">📋 Riwayat</a>
+    </div>
+
 </div>
-{% endblock %} {% block extra_js %}
+{% endblock %}
+
+{% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
-  new Chart(document.getElementById('radarChart'), {
-      type: 'radar',
-      data: {
-          labels: ['Komunikasi','Struktur','Kepercayaan\nDiri','Relevansi','Kosakata'],
-          datasets: [{
-              data: [
-                  {{ session.score_clarity|int }},
-                  {{ session.score_structure|int }},
-                  {{ session.score_confidence|int }},
-                  {{ session.score_relevance|int }},
-                  {{ session.score_vocabulary|int }},
-              ],
-              backgroundColor: 'rgba(5,150,105,0.15)',
-              borderColor: '#059669',
-              borderWidth: 2.5,
-              pointBackgroundColor: '#059669',
-              pointRadius: 4,
-          }]
-      },
-      options: {
-          responsive: true,
-          scales: {
-              r: {
-                  min: 0, max: 100,
-                  ticks: { stepSize: 25, font: { size: 10 } },
-                  grid: { color: 'rgba(0,0,0,0.07)' },
-                  pointLabels: { font: { size: 11, weight: '600' } }
-              }
-          },
-          plugins: { legend: { display: false } }
-      }
-  });
+new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+        labels: ['Komunikasi','Struktur','Kepercayaan\nDiri','Relevansi','Kosakata'],
+        datasets: [{
+            data: [
+                {{ session.score_clarity|int }},
+                {{ session.score_structure|int }},
+                {{ session.score_confidence|int }},
+                {{ session.score_relevance|int }},
+                {{ session.score_vocabulary|int }},
+            ],
+            backgroundColor: 'rgba(5,150,105,0.15)',
+            borderColor: '#059669',
+            borderWidth: 2.5,
+            pointBackgroundColor: '#059669',
+            pointRadius: 4,
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            r: {
+                min: 0, max: 100,
+                ticks: { stepSize: 25, font: { size: 10 } },
+                grid: { color: 'rgba(0,0,0,0.07)' },
+                pointLabels: { font: { size: 11, weight: '600' } }
+            }
+        },
+        plugins: { legend: { display: false } }
+    }
+});
 
-  // Animate bars
-  document.addEventListener('DOMContentLoaded', () => {
-      document.querySelectorAll('.bar-fill').forEach(el => {
-          const w = el.style.width; el.style.width = '0';
-          setTimeout(() => {
-              el.style.transition = 'width 0.9s cubic-bezier(.4,0,.2,1)';
-              el.style.width = w;
-          }, 200);
-      });
-  });
+// Animate bars
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.bar-fill').forEach(el => {
+        const w = el.style.width; el.style.width = '0';
+        setTimeout(() => {
+            el.style.transition = 'width 0.9s cubic-bezier(.4,0,.2,1)';
+            el.style.width = w;
+        }, 200);
+    });
+});
 
-  // Toggle accordion per jawaban
-  function toggleAns(idx) {
-      const body   = document.getElementById(`ans-body-${idx}`);
-      const toggle = document.getElementById(`toggle-${idx}`);
-      const open   = body.style.display !== 'block';
-      body.style.display   = open ? 'block' : 'none';
-      toggle.textContent   = open ? '▲' : '▼';
-  }
+// Toggle accordion per jawaban
+function toggleAns(idx) {
+    const body   = document.getElementById(`ans-body-${idx}`);
+    const toggle = document.getElementById(`toggle-${idx}`);
+    const open   = body.style.display !== 'block';
+    body.style.display   = open ? 'block' : 'none';
+    toggle.textContent   = open ? '▲' : '▼';
+}
 </script>
 {% endblock %}

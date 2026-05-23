@@ -555,11 +555,66 @@ body {
     box-shadow: var(--shadow-lg);
 }
 
-.auth-header { text-align: center; margin-bottom: 32px; }
-.auth-icon { font-size: 3rem; margin-bottom: 12px; }
+.auth-header { text-align: center; margin-bottom: 24px; }
+.auth-icon   { font-size: 3rem; margin-bottom: 12px; }
 .auth-header h1 { font-size: 1.5rem; font-weight: 800; }
-.auth-header p { color: var(--text-muted); margin-top: 4px; }
+.auth-header p  { color: var(--text-muted); margin-top: 4px; }
 
+/* ── Google Login Button ── */
+.btn-google-login {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 20px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--text);
+    font-weight: 600; font-size: 0.9rem;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+}
+.btn-google-login:hover {
+    border-color: #4285F4;
+    box-shadow: 0 2px 8px rgba(66,133,244,0.2);
+    transform: translateY(-1px);
+    color: #4285F4;
+}
+.btn-google-login svg { flex-shrink: 0; }
+
+[data-theme="dark"] .btn-google-login {
+    background: rgba(15,20,40,0.7) !important;
+    border-color: rgba(99,102,241,0.3) !important;
+    color: var(--text) !important;
+}
+[data-theme="dark"] .btn-google-login:hover {
+    border-color: #4285F4 !important;
+    background: rgba(66,133,244,0.08) !important;
+    color: #60a5fa !important;
+    box-shadow: 0 0 15px rgba(66,133,244,0.2) !important;
+}
+
+/* ── Auth Divider ── */
+.auth-divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 8px 0 16px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+.auth-divider::before,
+.auth-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+}
+[data-theme="dark"] .auth-divider::before,
+[data-theme="dark"] .auth-divider::after {
+    background: rgba(99,102,241,0.2);
+}
+
+/* ── Auth form button ── */
 .btn-auth {
     width: 100%; padding: 14px;
     background: var(--primary); color: white;
@@ -567,13 +622,25 @@ body {
     font-family: var(--font); font-size: 1rem; font-weight: 700;
     cursor: pointer; transition: all 0.2s; margin-top: 8px;
 }
-.btn-auth:hover { background: var(--primary-dark); transform: translateY(-1px); }
+.btn-auth:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79,70,229,0.3);
+}
+[data-theme="dark"] .btn-auth {
+    background: linear-gradient(135deg, #6366f1, #818cf8) !important;
+    box-shadow: 0 0 15px rgba(99,102,241,0.3) !important;
+}
 
 .auth-footer {
-    text-align: center; margin-top: 24px;
+    text-align: center; margin-top: 20px;
     font-size: 0.875rem; color: var(--text-muted);
 }
 .auth-footer a { color: var(--primary); font-weight: 600; text-decoration: none; }
+.auth-footer a:hover { text-decoration: underline; }
+
+.form-check { margin-bottom: 16px; font-size: 0.875rem; }
+.form-check label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 
 /* ============ HERO (Landing Page) ============ */
 .hero {
@@ -2880,21 +2947,4 @@ body {
     .action-row  { flex-direction: column; align-items: center; }
     .big-score-ring { width: 120px; height: 120px; }
     .ring-num    { font-size: 2rem; }
-}
-
-.btn-google {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #fff;
-    border: 1px solid #ddd;
-    padding: 0.5rem 1rem;
-    text-decoration: none;
-    color: #444;
-    border-radius: 4px;
-    margin-top: 1rem;
-}
-.btn-google img {
-    width: 20px;
-    margin-right: 0.5rem;
 }

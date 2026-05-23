@@ -15,112 +15,137 @@
                 {{ category.icon }} {{ category.name }}
             </div>
             <h1 class="record-title">"{{ title }}"</h1>
-            <p class="record-subtitle">Rekam suaramu, bisa pause dan lanjutkan kapan saja!</p>
+            <p class="record-subtitle">Rekam suaramu langsung atau upload file audio yang sudah ada.</p>
         </div>
 
-        <!-- Tips Singkat -->
-        <div class="tips-mini">
-            {% for tip in category.tips %}
-            <span class="tip-tag">✓ {{ tip }}</span>
-            {% endfor %}
+        <!-- ── TAB SWITCHER ── -->
+        <div class="rec-tab-bar">
+            <button class="rec-tab active" id="tab-record" onclick="switchTab('record')">
+                🎙️ Rekam Suara
+            </button>
+            <button class="rec-tab" id="tab-upload" onclick="switchTab('upload')">
+                📁 Upload File Audio
+            </button>
         </div>
 
-        <!-- Timer + Status -->
-        <div class="timer-display">
-            <div class="timer-circle" id="timer-circle">
-                <span id="timer-text">00:00</span>
+        <!-- ══════════════════════════════════════
+             TAB 1: REKAM SUARA
+        ══════════════════════════════════════ -->
+        <div id="panel-record">
+
+            <div class="tips-mini">
+                {% for tip in category.tips %}
+                <span class="tip-tag">✓ {{ tip }}</span>
+                {% endfor %}
             </div>
-            <div id="status-text" class="status-idle">Siap untuk merekam</div>
-        </div>
 
-        <!-- Segment indicator (berapa kali pause/resume) -->
-        <div id="segment-info" class="segment-info" style="display:none">
-            <span class="seg-icon">🎞️</span>
-            <span id="segment-count">1</span> segmen rekaman
-            <span class="seg-dot"></span>
-            Durasi aktif: <span id="active-duration">00:00</span>
-        </div>
+            <div class="timer-display">
+                <div class="timer-circle" id="timer-circle">
+                    <span id="timer-text">00:00</span>
+                </div>
+                <div id="status-text" class="status-idle">Siap untuk merekam</div>
+            </div>
 
-        <!-- Audio Visualizer -->
-        <div class="visualizer-container">
-            <canvas id="audio-visualizer" width="500" height="80"></canvas>
-        </div>
+            <div id="segment-info" class="segment-info" style="display:none">
+                <span class="seg-icon">🎞️</span>
+                <span id="segment-count">1</span> segmen rekaman
+                <span class="seg-dot"></span>
+                Durasi aktif: <span id="active-duration">00:00</span>
+            </div>
 
-        <!-- Control Buttons -->
-        <div class="record-controls">
+            <div class="visualizer-container">
+                <canvas id="audio-visualizer" width="500" height="80"></canvas>
+            </div>
 
-            <!-- Tombol Mulai Rekam -->
-            <button id="btn-record" class="btn-record" onclick="startRecording()">
-                <span class="rec-icon">🔴</span>
-                <span class="rec-text">Mulai Rekam</span>
-            </button>
-
-            <!-- Tombol Pause -->
-            <button id="btn-pause" class="btn-pause" onclick="pauseRecording()" disabled style="display:none">
-                <span class="rec-icon">⏸️</span>
-                <span class="rec-text">Pause</span>
-            </button>
-
-            <!-- Tombol Lanjut (muncul saat pause) -->
-            <button id="btn-resume" class="btn-resume" onclick="resumeRecording()" disabled style="display:none">
-                <span class="rec-icon">▶️</span>
-                <span class="rec-text">Lanjut Rekam</span>
-            </button>
-
-            <!-- Tombol Stop -->
-            <button id="btn-stop" class="btn-stop" onclick="stopRecording()" disabled>
-                <span class="rec-icon">⏹️</span>
-                <span class="rec-text">Selesai</span>
-            </button>
-
-        </div>
-
-        <!-- Keterangan shortcut -->
-        <div class="rec-shortcut-hint" id="shortcut-hint" style="display:none">
-            <kbd>Space</kbd> untuk Pause/Lanjut &nbsp;·&nbsp; <kbd>S</kbd> untuk Selesai
-        </div>
-
-        <!-- Pause overlay info -->
-        <div id="pause-overlay" class="pause-overlay" style="display:none">
-            <div class="pause-icon">⏸️</div>
-            <div class="pause-text">Rekaman dijeda</div>
-            <div class="pause-sub">Tekan <strong>Lanjut Rekam</strong> untuk melanjutkan</div>
-        </div>
-
-        <!-- Audio Playback -->
-        <div id="playback-section" class="playback-section" style="display:none">
-            <h3>🎧 Dengarkan Hasil Rekaman</h3>
-            <div id="playback-meta" class="playback-meta"></div>
-            <audio id="audio-playback" controls></audio>
-            <div class="playback-actions">
-                <button onclick="resetRecording()" class="btn-secondary">🔄 Rekam Ulang</button>
-                <button onclick="submitAudio()"    class="btn-primary" id="btn-submit">
-                    🚀 Kirim & Analisis
+            <div class="record-controls">
+                <button id="btn-record" class="btn-record" onclick="startRecording()">
+                    <span class="rec-icon">🔴</span><span class="rec-text">Mulai Rekam</span>
+                </button>
+                <button id="btn-pause" class="btn-pause" onclick="pauseRecording()" disabled style="display:none">
+                    <span class="rec-icon">⏸️</span><span class="rec-text">Pause</span>
+                </button>
+                <button id="btn-resume" class="btn-resume" onclick="resumeRecording()" disabled style="display:none">
+                    <span class="rec-icon">▶️</span><span class="rec-text">Lanjut Rekam</span>
+                </button>
+                <button id="btn-stop" class="btn-stop" onclick="stopRecording()" disabled>
+                    <span class="rec-icon">⏹️</span><span class="rec-text">Selesai</span>
                 </button>
             </div>
-        </div>
 
-        <!-- Processing State -->
-        <div id="processing-section" class="processing-section" style="display:none">
-            <div class="processing-animation">
-                <div class="proc-spinner"></div>
+            <div class="rec-shortcut-hint" id="shortcut-hint" style="display:none">
+                <kbd>Space</kbd> untuk Pause/Lanjut &nbsp;·&nbsp; <kbd>S</kbd> untuk Selesai
             </div>
+
+            <div id="pause-overlay" class="pause-overlay" style="display:none">
+                <div class="pause-icon">⏸️</div>
+                <div class="pause-text">Rekaman dijeda</div>
+                <div class="pause-sub">Tekan <strong>Lanjut Rekam</strong> untuk melanjutkan</div>
+            </div>
+
+            <div id="playback-section" class="playback-section" style="display:none">
+                <h3>🎧 Dengarkan Hasil Rekaman</h3>
+                <div id="playback-meta" class="playback-meta"></div>
+                <audio id="audio-playback" controls></audio>
+                <div class="playback-actions">
+                    <button onclick="resetRecording()" class="btn-secondary">🔄 Rekam Ulang</button>
+                    <button onclick="submitAudio('record')" class="btn-primary" id="btn-submit">
+                        Kirim &amp; Analisis
+                    </button>
+                </div>
+            </div>
+
+        </div><!-- /panel-record -->
+
+        <!-- ══════════════════════════════════════
+             TAB 2: UPLOAD FILE AUDIO
+        ══════════════════════════════════════ -->
+        <div id="panel-upload" style="display:none">
+
+            <div class="upload-area" id="upload-drop-area">
+                <div class="upload-icon"></div>
+                <p class="upload-title">Seret &amp; lepas file audio di sini</p>
+                <p class="upload-sub">atau klik untuk memilih file</p>
+                <p class="upload-formats">Format didukung: MP3, WAV, M4A, OGG, WebM, FLAC, AAC</p>
+                <input type="file" id="file-input"
+                    accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm,.flac,.aac"
+                    style="display:none"
+                    onchange="handleFileSelect(this.files[0])">
+                <button class="btn-secondary" onclick="document.getElementById('file-input').click()">
+                    📂 Pilih File Audio
+                </button>
+            </div>
+
+            <div id="upload-preview" style="display:none">
+                <div class="upload-file-info" id="upload-file-info"></div>
+                <audio id="upload-audio-preview" controls style="width:100%; margin: 12px 0;"></audio>
+                <div class="playback-actions">
+                    <button onclick="clearFileUpload()" class="btn-secondary">🗑️ Ganti File</button>
+                    <button onclick="submitAudio('upload')" class="btn-primary" id="btn-submit-upload">
+                        🚀 Kirim &amp; Analisis
+                    </button>
+                </div>
+            </div>
+
+        </div><!-- /panel-upload -->
+
+        <!-- ══════════════════════════════════════
+             PROCESSING STATE (shared)
+        ══════════════════════════════════════ -->
+        <div id="processing-section" class="processing-section" style="display:none">
+            <div class="processing-animation"><div class="proc-spinner"></div></div>
             <h3 id="proc-title">Mengupload audio...</h3>
             <p id="proc-desc">Harap tunggu, proses ini membutuhkan beberapa saat</p>
             <div class="proc-steps">
                 <div class="proc-step" id="step-upload">
-                    <span class="step-icon">📤</span>
-                    <span>Upload Audio</span>
+                    <span class="step-icon"></span><span>Upload Audio</span>
                     <span class="step-status" id="status-upload">⏳</span>
                 </div>
                 <div class="proc-step" id="step-gemini">
-                    <span class="step-icon">🤖</span>
-                    <span>Gemini AI — Transkripsi + Analisis</span>
+                    <span class="step-icon"></span><span>Analisi AI — Transkripsi + Analisis</span>
                     <span class="step-status" id="status-gemini">⏳</span>
                 </div>
                 <div class="proc-step" id="step-save">
-                    <span class="step-icon">💾</span>
-                    <span>Menyimpan Hasil</span>
+                    <span class="step-icon"></span><span>Menyimpan Hasil</span>
                     <span class="step-status" id="status-save">⏳</span>
                 </div>
             </div>
@@ -132,149 +157,138 @@
 
 {% block extra_js %}
 <script>
-// =========================================
-// KONFIGURASI
-// =========================================
 const CATEGORY         = document.getElementById('hidden-category').value;
 const TITLE            = document.getElementById('hidden-title').value;
 const UPLOAD_URL       = "{{ url_for('practice.upload_audio') }}";
 const PROCESS_URL_BASE = '/practice/process/';
 const RESULT_URL_BASE  = '/practice/result/';
 
-console.log('✅ Kategori:', CATEGORY, '| Judul:', TITLE);
+// ── Tab ──
+function switchTab(tab) {
+    document.getElementById('panel-record').style.display = tab === 'record' ? 'block' : 'none';
+    document.getElementById('panel-upload').style.display = tab === 'upload' ? 'block' : 'none';
+    document.getElementById('tab-record').classList.toggle('active', tab === 'record');
+    document.getElementById('tab-upload').classList.toggle('active', tab === 'upload');
+}
 
-// =========================================
-// STATE GLOBAL
-// =========================================
-let mediaRecorder      = null;
-let audioStream        = null;
-let audioChunks        = [];          // semua chunk dari semua segmen
-let sessionId          = null;
-let isRecording        = false;
-let isPaused           = false;
+// ── Upload File ──
+const dropArea = document.getElementById('upload-drop-area');
+dropArea.addEventListener('dragover',  e => { e.preventDefault(); dropArea.classList.add('drag-over'); });
+dropArea.addEventListener('dragleave', ()  => dropArea.classList.remove('drag-over'));
+dropArea.addEventListener('drop', e => {
+    e.preventDefault(); dropArea.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && (file.type.startsWith('audio/') || isAudioExtension(file.name))) handleFileSelect(file);
+    else alert('❌ File harus berupa audio (MP3, WAV, M4A, dll)');
+});
 
-// Timer
-let timerInterval      = null;
-let activeDurationInterval = null;
-let recordingStartTime = null;        // waktu mulai rekam pertama
-let totalActiveSecs    = 0;           // akumulasi detik aktif (tanpa pause)
-let segmentStartTime   = null;        // waktu mulai segmen saat ini
-let segmentCount       = 0;
+let selectedFile = null;
 
-// Visualizer
-let analyzerNode       = null;
-let animationId        = null;
+function handleFileSelect(file) {
+    if (!file) return;
+    if (!file.type.startsWith('audio/') && !isAudioExtension(file.name)) {
+        alert('❌ Format tidak didukung. Gunakan MP3, WAV, M4A, OGG, WebM, FLAC, atau AAC.');
+        return;
+    }
+    selectedFile = file;
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    document.getElementById('upload-file-info').innerHTML = `
+        <div class="file-info-row">
+            <span class="file-info-icon">🎵</span>
+            <div class="file-info-detail">
+                <div class="file-info-name">${escapeHtml(file.name)}</div>
+                <div class="file-info-meta">${sizeMB} MB &nbsp;·&nbsp; ${file.type || 'audio'}</div>
+            </div>
+            <span class="file-info-ok">✅</span>
+        </div>`;
+    document.getElementById('upload-audio-preview').src = URL.createObjectURL(file);
+    dropArea.style.display = 'none';
+    document.getElementById('upload-preview').style.display = 'block';
+}
 
-// =========================================
-// VISUALIZER
-// =========================================
+function clearFileUpload() {
+    selectedFile = null;
+    document.getElementById('file-input').value         = '';
+    document.getElementById('upload-audio-preview').src = '';
+    document.getElementById('upload-preview').style.display = 'none';
+    dropArea.style.display = 'flex';
+}
+
+function isAudioExtension(fn) {
+    return /\.(mp3|wav|m4a|ogg|webm|flac|aac|opus)$/i.test(fn);
+}
+
+// ── Rekam: state global ──
+let mediaRecorder = null, audioStream = null, audioChunks = [];
+let sessionId = null, isRecording = false, isPaused = false;
+let timerInterval = null, activeDurationInterval = null;
+let recordingStartTime = null, totalActiveSecs = 0;
+let segmentStartTime = null, segmentCount = 0;
+let analyzerNode = null, animationId = null;
+
 function setupVisualizer(stream) {
-    const canvas   = document.getElementById('audio-visualizer');
-    const ctx      = canvas.getContext('2d');
+    const canvas = document.getElementById('audio-visualizer');
+    const ctx = canvas.getContext('2d');
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const source   = audioCtx.createMediaStreamSource(stream);
-    analyzerNode   = audioCtx.createAnalyser();
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyzerNode = audioCtx.createAnalyser();
     analyzerNode.fftSize = 256;
     source.connect(analyzerNode);
-
-    const bufLen   = analyzerNode.frequencyBinCount;
-    const dataArr  = new Uint8Array(bufLen);
-
+    const bufLen = analyzerNode.frequencyBinCount;
+    const dataArr = new Uint8Array(bufLen);
     function draw() {
         animationId = requestAnimationFrame(draw);
         analyzerNode.getByteFrequencyData(dataArr);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const bw = (canvas.width / bufLen) * 2.5;
-        let x = 0;
+        const bw = (canvas.width / bufLen) * 2.5; let x = 0;
         for (let i = 0; i < bufLen; i++) {
-            const bh  = (dataArr[i] / 255) * canvas.height;
-            const hue = (i / bufLen) * 220 + 200;
-            ctx.fillStyle = `hsla(${hue},80%,60%,0.8)`;
-            ctx.fillRect(x, canvas.height - bh, bw, bh);
-            x += bw + 1;
+            const bh = (dataArr[i] / 255) * canvas.height;
+            ctx.fillStyle = `hsla(${(i/bufLen)*220+200},80%,60%,0.8)`;
+            ctx.fillRect(x, canvas.height - bh, bw, bh); x += bw + 1;
         }
     }
     draw();
 }
-
 function clearVisualizer() {
     if (animationId) cancelAnimationFrame(animationId);
-    const canvas = document.getElementById('audio-visualizer');
-    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    const c = document.getElementById('audio-visualizer');
+    c.getContext('2d').clearRect(0, 0, c.width, c.height);
 }
-
-// Visualizer pause: gambar garis datar saat dijeda
 function pauseVisualizer() {
     if (animationId) cancelAnimationFrame(animationId);
-    const canvas = document.getElementById('audio-visualizer');
-    const ctx    = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const c = document.getElementById('audio-visualizer'), ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
     ctx.fillStyle = 'rgba(100,100,200,0.2)';
-    ctx.fillRect(0, canvas.height / 2 - 2, canvas.width, 4);
+    ctx.fillRect(0, c.height/2 - 2, c.width, 4);
 }
-
-// =========================================
-// TIMER UTAMA (tampilkan di lingkaran)
-// =========================================
 function startMainTimer() {
     if (timerInterval) clearInterval(timerInterval);
     recordingStartTime = Date.now();
-    timerInterval = setInterval(updateMainTimer, 1000);
+    timerInterval = setInterval(() => {
+        document.getElementById('timer-text').textContent = formatTime(Math.floor((Date.now()-recordingStartTime)/1000));
+    }, 1000);
 }
-
-function updateMainTimer() {
-    // Hitung total waktu sejak mulai (termasuk saat pause)
-    const wallSecs = Math.floor((Date.now() - recordingStartTime) / 1000);
-    document.getElementById('timer-text').textContent = formatTime(wallSecs);
-}
-
-// =========================================
-// TIMER DURASI AKTIF (hanya saat recording)
-// =========================================
 function startActiveDurationTimer() {
     segmentStartTime = Date.now();
     if (activeDurationInterval) clearInterval(activeDurationInterval);
     activeDurationInterval = setInterval(() => {
-        const segSecs = Math.floor((Date.now() - segmentStartTime) / 1000);
-        const total   = totalActiveSecs + segSecs;
-        document.getElementById('active-duration').textContent = formatTime(total);
+        document.getElementById('active-duration').textContent =
+            formatTime(totalActiveSecs + Math.floor((Date.now()-segmentStartTime)/1000));
     }, 1000);
 }
-
 function stopActiveDurationTimer() {
     if (activeDurationInterval) clearInterval(activeDurationInterval);
-    if (segmentStartTime) {
-        totalActiveSecs += Math.floor((Date.now() - segmentStartTime) / 1000);
-        segmentStartTime = null;
-    }
+    if (segmentStartTime) { totalActiveSecs += Math.floor((Date.now()-segmentStartTime)/1000); segmentStartTime = null; }
 }
+function formatTime(s) { return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
 
-function formatTime(secs) {
-    const m = String(Math.floor(secs / 60)).padStart(2, '0');
-    const s = String(secs % 60).padStart(2, '0');
-    return `${m}:${s}`;
-}
-
-// =========================================
-// MULAI REKAM
-// =========================================
 async function startRecording() {
     try {
         audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        setupVisualizer(audioStream);
-        createMediaRecorder();
-        mediaRecorder.start(500);
-
-        isRecording    = true;
-        isPaused       = false;
-        segmentCount   = 1;
-        totalActiveSecs= 0;
-
-        startMainTimer();
-        startActiveDurationTimer();
-        updateSegmentInfo();
-
-        // UI
+        setupVisualizer(audioStream); createMediaRecorder(); mediaRecorder.start(500);
+        isRecording = true; isPaused = false; segmentCount = 1; totalActiveSecs = 0;
+        startMainTimer(); startActiveDurationTimer();
+        document.getElementById('segment-count').textContent = segmentCount;
         setStatus('🔴 Sedang merekam...', 'status-recording');
         document.getElementById('btn-record').style.display  = 'none';
         document.getElementById('btn-pause').style.display   = 'inline-flex';
@@ -283,131 +297,57 @@ async function startRecording() {
         document.getElementById('segment-info').style.display= 'flex';
         document.getElementById('shortcut-hint').style.display = 'block';
         document.getElementById('timer-circle').classList.add('recording');
-
-    } catch (err) {
-        alert('❌ Gagal akses mikrofon:\n' + err.message +
-              '\n\nPastikan browser mengizinkan akses mikrofon.');
-    }
+    } catch(err) { alert('❌ Gagal akses mikrofon:\n' + err.message); }
 }
-
-// =========================================
-// BUAT MediaRecorder BARU
-// =========================================
 function createMediaRecorder() {
-    let mimeType = '';
-    const types  = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
-    for (const t of types) {
-        if (MediaRecorder.isTypeSupported(t)) { mimeType = t; break; }
-    }
-
-    mediaRecorder = new MediaRecorder(audioStream, mimeType ? { mimeType } : {});
-
-    mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) audioChunks.push(e.data);
-    };
-
-    mediaRecorder.onstop = () => {
-        // onstop dipanggil baik saat pause maupun stop akhir
-        // Ditangani oleh flag isPaused di masing-masing fungsi
-    };
+    let mime = '';
+    for (const t of ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'])
+        if (MediaRecorder.isTypeSupported(t)) { mime = t; break; }
+    mediaRecorder = new MediaRecorder(audioStream, mime ? { mimeType: mime } : {});
+    mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
 }
-
-// =========================================
-// PAUSE REKAMAN
-// =========================================
 function pauseRecording() {
     if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
-    isPaused = true;
-
-    // Kumpulkan chunk segmen ini lalu stop recorder sementara
-    mediaRecorder.requestData(); // flush data terakhir
-    mediaRecorder.stop();        // stop rekorder (chunk sudah dikumpulkan)
-
-    stopActiveDurationTimer();
-    pauseVisualizer();
-
-    // UI
-    setStatus('⏸️ Dijeda — tekan Lanjut untuk melanjutkan', 'status-paused');
-    document.getElementById('btn-pause').style.display   = 'none';
-    document.getElementById('btn-resume').style.display  = 'inline-flex';
-    document.getElementById('btn-resume').disabled       = false;
-    document.getElementById('pause-overlay').style.display = 'flex';
-    document.getElementById('timer-circle').classList.remove('recording');
-    document.getElementById('timer-circle').classList.add('paused');
+    isPaused = true; mediaRecorder.requestData(); mediaRecorder.stop();
+    stopActiveDurationTimer(); pauseVisualizer();
+    setStatus('⏸️ Dijeda', 'status-paused');
+    document.getElementById('btn-pause').style.display    = 'none';
+    document.getElementById('btn-resume').style.display   = 'inline-flex';
+    document.getElementById('btn-resume').disabled        = false;
+    document.getElementById('pause-overlay').style.display= 'flex';
+    document.getElementById('timer-circle').classList.replace('recording','paused');
 }
-
-// =========================================
-// LANJUT REKAMAN SETELAH PAUSE
-// =========================================
 function resumeRecording() {
     if (!audioStream) return;
-    isPaused     = false;
-    segmentCount += 1;
-
-    // Buat MediaRecorder baru untuk segmen berikutnya
-    createMediaRecorder();
-    mediaRecorder.start(500);
-
-    startActiveDurationTimer();
-
-    // Pulihkan visualizer
-    setupVisualizer(audioStream);
-
-    // UI
+    isPaused = false; segmentCount++;
+    createMediaRecorder(); mediaRecorder.start(500);
+    startActiveDurationTimer(); setupVisualizer(audioStream);
     setStatus('🔴 Sedang merekam...', 'status-recording');
     document.getElementById('btn-pause').style.display    = 'inline-flex';
     document.getElementById('btn-pause').disabled         = false;
     document.getElementById('btn-resume').style.display   = 'none';
     document.getElementById('pause-overlay').style.display= 'none';
-    document.getElementById('timer-circle').classList.remove('paused');
-    document.getElementById('timer-circle').classList.add('recording');
-
-    updateSegmentInfo();
+    document.getElementById('timer-circle').classList.replace('paused','recording');
+    document.getElementById('segment-count').textContent  = segmentCount;
 }
-
-// =========================================
-// STOP REKAMAN (Selesai)
-// =========================================
 function stopRecording() {
     if (!mediaRecorder) return;
-
     isPaused = false;
-
-    // Kumpulkan sisa data lalu stop
-    if (mediaRecorder.state !== 'inactive') {
-        mediaRecorder.requestData();
-        mediaRecorder.stop();
-    }
-
+    if (mediaRecorder.state !== 'inactive') { mediaRecorder.requestData(); mediaRecorder.stop(); }
     stopActiveDurationTimer();
     if (timerInterval) clearInterval(timerInterval);
     if (audioStream) audioStream.getTracks().forEach(t => t.stop());
-    clearVisualizer();
-
-    isRecording = false;
-
-    // Gabungkan semua chunks menjadi satu Blob
+    clearVisualizer(); isRecording = false;
     setTimeout(() => {
-        const mimeType  = audioChunks.length > 0 && audioChunks[0].type
-                          ? audioChunks[0].type : 'audio/webm';
-        const audioBlob = new Blob(audioChunks, { type: mimeType });
-        const url       = URL.createObjectURL(audioBlob);
-
-        document.getElementById('audio-playback').src = url;
-
-        // Info di playback
-        const meta = document.getElementById('playback-meta');
-        meta.innerHTML = `
-            <span>🎞️ ${segmentCount} segmen</span>
-            <span>⏱️ Durasi aktif: ${formatTime(totalActiveSecs)}</span>
-            <span>📦 Ukuran: ${(audioBlob.size / 1024).toFixed(0)} KB</span>`;
-
+        const mime = audioChunks.length > 0 && audioChunks[0].type ? audioChunks[0].type : 'audio/webm';
+        const blob = new Blob(audioChunks, { type: mime });
+        window._audioBlob = blob;
+        document.getElementById('audio-playback').src = URL.createObjectURL(blob);
+        document.getElementById('playback-meta').innerHTML =
+            `<span>🎞️ ${segmentCount} segmen</span>
+             <span>⏱️ Durasi aktif: ${formatTime(totalActiveSecs)}</span>
+             <span>📦 Ukuran: ${(blob.size/1024).toFixed(0)} KB</span>`;
         document.getElementById('playback-section').style.display = 'flex';
-
-        // Simpan blob ke window untuk diakses submitAudio
-        window._audioBlob = audioBlob;
-
-        // UI reset controls
         setStatus('✅ Rekaman selesai!', 'status-done');
         document.getElementById('btn-record').style.display  = 'none';
         document.getElementById('btn-pause').style.display   = 'none';
@@ -416,158 +356,139 @@ function stopRecording() {
         document.getElementById('pause-overlay').style.display = 'none';
         document.getElementById('shortcut-hint').style.display = 'none';
         document.getElementById('timer-circle').classList.remove('recording','paused');
-    }, 300); // beri waktu 300ms agar chunk terakhir masuk
+    }, 300);
 }
-
-// =========================================
-// RESET REKAMAN
-// =========================================
 function resetRecording() {
-    // Hentikan semua
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-    }
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     if (audioStream) audioStream.getTracks().forEach(t => t.stop());
     if (timerInterval) clearInterval(timerInterval);
     if (activeDurationInterval) clearInterval(activeDurationInterval);
     clearVisualizer();
-
-    // Reset state
-    audioChunks     = [];
-    isRecording     = false;
-    isPaused        = false;
-    segmentCount    = 0;
-    totalActiveSecs = 0;
-    sessionId       = null;
-    window._audioBlob = null;
-
-    // Reset UI
-    document.getElementById('audio-playback').src          = '';
+    audioChunks=[]; isRecording=false; isPaused=false; segmentCount=0;
+    totalActiveSecs=0; sessionId=null; window._audioBlob=null;
+    document.getElementById('audio-playback').src           = '';
     document.getElementById('playback-section').style.display = 'none';
-    document.getElementById('timer-text').textContent      = '00:00';
-    document.getElementById('segment-info').style.display  = 'none';
-    document.getElementById('shortcut-hint').style.display = 'none';
-    document.getElementById('pause-overlay').style.display = 'none';
-    document.getElementById('btn-record').style.display    = 'inline-flex';
-    document.getElementById('btn-pause').style.display     = 'none';
-    document.getElementById('btn-resume').style.display    = 'none';
-    document.getElementById('btn-stop').disabled           = true;
+    document.getElementById('timer-text').textContent       = '00:00';
+    document.getElementById('segment-info').style.display   = 'none';
+    document.getElementById('shortcut-hint').style.display  = 'none';
+    document.getElementById('pause-overlay').style.display  = 'none';
+    document.getElementById('btn-record').style.display     = 'inline-flex';
+    document.getElementById('btn-pause').style.display      = 'none';
+    document.getElementById('btn-resume').style.display     = 'none';
+    document.getElementById('btn-stop').disabled            = true;
     document.getElementById('timer-circle').classList.remove('recording','paused');
     setStatus('Siap untuk merekam', 'status-idle');
-    clearVisualizer();
 }
 
-// =========================================
-// HELPER UI
-// =========================================
-function setStatus(text, cls) {
-    const el = document.getElementById('status-text');
-    el.textContent = text;
-    el.className   = cls;
-}
-
-function updateSegmentInfo() {
-    document.getElementById('segment-count').textContent = segmentCount;
-}
-
-// =========================================
-// KEYBOARD SHORTCUT
-// =========================================
-document.addEventListener('keydown', (e) => {
-    // Hindari shortcut saat user mengetik di input
+document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
     if (e.code === 'Space') {
         e.preventDefault();
-        if (!isRecording && !isPaused) return; // belum mulai
-        if (isPaused) resumeRecording();
-        else          pauseRecording();
+        if (!isRecording && !isPaused) return;
+        if (isPaused) resumeRecording(); else pauseRecording();
     }
-
-    if (e.code === 'KeyS' && isRecording) {
-        e.preventDefault();
-        stopRecording();
-    }
+    if (e.code === 'KeyS' && isRecording) { e.preventDefault(); stopRecording(); }
 });
 
-// =========================================
-// SUBMIT & PROSES
-// =========================================
-async function submitAudio() {
-    const audioBlob = window._audioBlob;
-    if (!audioBlob) { alert('Belum ada rekaman!'); return; }
-
+// ── Submit (rekam atau upload) ──
+async function submitAudio(source) {
+    let audioBlob, durationSecs;
+    if (source === 'record') {
+        audioBlob = window._audioBlob; durationSecs = totalActiveSecs;
+        if (!audioBlob) { alert('Belum ada rekaman!'); return; }
+    } else {
+        audioBlob = selectedFile; durationSecs = 0;
+        if (!audioBlob) { alert('Belum ada file yang dipilih!'); return; }
+    }
     if (!CATEGORY || CATEGORY === 'undefined') {
         alert('❌ Kategori tidak terdeteksi. Kembali dan pilih kategori ulang.');
         return;
     }
-
-    console.log('📤 Submit — Kategori:', CATEGORY, '| Judul:', TITLE);
-    console.log('📦 Ukuran audio:', (audioBlob.size / 1024).toFixed(0), 'KB');
-    console.log('🎞️ Segmen rekaman:', segmentCount);
-
-    document.getElementById('playback-section').style.display   = 'none';
+    document.getElementById('panel-record').style.display   = 'none';
+    document.getElementById('panel-upload').style.display   = 'none';
     document.getElementById('processing-section').style.display = 'block';
-
     updateStep('upload', 'loading', '⏳');
     updateProc('Mengupload audio...', 'Harap tunggu...');
-
     try {
-        const formData = new FormData();
-        formData.append('audio',    audioBlob, 'recording.webm');
-        formData.append('category', CATEGORY);
-        formData.append('title',    TITLE);
-        formData.append('duration', totalActiveSecs);
-
-        const uploadRes  = await fetch(UPLOAD_URL, { method: 'POST', body: formData });
-        const uploadData = await uploadRes.json();
-
-        if (!uploadData.success) throw new Error(uploadData.error || 'Upload gagal');
-
-        sessionId = uploadData.session_id;
+        const fd = new FormData();
+        fd.append('audio',    audioBlob, source === 'upload' ? audioBlob.name : 'recording.webm');
+        fd.append('category', CATEGORY);
+        fd.append('title',    TITLE);
+        fd.append('duration', durationSecs);
+        const upRes  = await fetch(UPLOAD_URL, { method: 'POST', body: fd });
+        const upData = await upRes.json();
+        if (!upData.success) throw new Error(upData.error || 'Upload gagal');
+        sessionId = upData.session_id;
         updateStep('upload', 'done', '✅');
-
-        // Gemini analisis
         updateStep('gemini', 'loading', '⏳');
-        updateProc(
-            '🤖 Gemini sedang mendengarkan audiomu...',
-            'Menganalisis transkripsi, filler words, jeda, intonasi, dan semua aspek. Harap tunggu 15-30 detik...'
-        );
-
-        const processRes  = await fetch(`${PROCESS_URL_BASE}${sessionId}`, { method: 'POST' });
-        const processData = await processRes.json();
-
-        if (!processData.success) throw new Error(processData.error || 'Analisis gagal');
-
+        updateProc('🤖 Gemini sedang mendengarkan audiomu...', 'Harap tunggu 15–30 detik...');
+        const prRes  = await fetch(`${PROCESS_URL_BASE}${sessionId}`, { method: 'POST' });
+        const prData = await prRes.json();
+        if (!prData.success) throw new Error(prData.error || 'Analisis gagal');
         updateStep('gemini', 'done', '✅');
         updateStep('save',   'done', '✅');
         updateProc('🎉 Analisis selesai!', 'Mengalihkan ke halaman hasil...');
-
-        setTimeout(() => {
-            window.location.href = `${RESULT_URL_BASE}${sessionId}`;
-        }, 1200);
-
-    } catch (err) {
+        setTimeout(() => { window.location.href = `${RESULT_URL_BASE}${sessionId}`; }, 1200);
+    } catch(err) {
         updateProc('❌ Terjadi kesalahan!', err.message);
         document.querySelector('.proc-spinner').style.borderTopColor = '#ef4444';
-        console.error(err);
         setTimeout(() => {
             document.getElementById('processing-section').style.display = 'none';
-            document.getElementById('playback-section').style.display   = 'flex';
+            document.getElementById(source === 'record' ? 'panel-record' : 'panel-upload').style.display = 'block';
         }, 3000);
     }
 }
 
-function updateStep(step, state, icon) {
-    const el  = document.getElementById(`status-${step}`);
-    const row = document.getElementById(`step-${step}`);
-    if (el)  el.textContent  = icon;
-    if (row) row.className   = `proc-step step-${state}`;
+function setStatus(text, cls) {
+    const el = document.getElementById('status-text');
+    el.textContent = text; el.className = cls;
 }
-
+function updateStep(step, state, icon) {
+    const el = document.getElementById(`status-${step}`), row = document.getElementById(`step-${step}`);
+    if (el)  el.textContent = icon;
+    if (row) row.className  = `proc-step step-${state}`;
+}
 function updateProc(title, desc) {
     document.getElementById('proc-title').textContent = title;
     document.getElementById('proc-desc').textContent  = desc;
 }
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 </script>
+
+<style>
+.rec-tab-bar {
+    display: flex; gap: 8px; margin: 20px 0 24px;
+    border-bottom: 2px solid #e5e7eb; padding-bottom: 0;
+}
+.rec-tab {
+    padding: 10px 20px; border: none; background: none; cursor: pointer;
+    font-size: 0.95rem; font-weight: 500; color: #6b7280;
+    border-bottom: 3px solid transparent; margin-bottom: -2px;
+    transition: all 0.2s; border-radius: 6px 6px 0 0;
+}
+.rec-tab:hover  { color: #4F46E5; background: #f5f3ff; }
+.rec-tab.active { color: #4F46E5; border-bottom-color: #4F46E5; font-weight: 600; }
+
+.upload-area {
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    border: 2px dashed #d1d5db; border-radius: 16px; padding: 48px 24px;
+    text-align: center; cursor: pointer; transition: all 0.2s;
+    background: #fafafa; margin: 16px 0;
+}
+.upload-area:hover, .upload-area.drag-over { border-color: #4F46E5; background: #f5f3ff; }
+.upload-icon   { font-size: 3rem; }
+.upload-title  { font-size: 1.1rem; font-weight: 600; color: #374151; margin: 0; }
+.upload-sub    { color: #6b7280; margin: 0; font-size: 0.9rem; }
+.upload-formats{ color: #9ca3af; font-size: 0.8rem; margin: 0; }
+
+.upload-file-info { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 16px; }
+.file-info-row    { display: flex; align-items: center; gap: 12px; }
+.file-info-icon   { font-size: 1.8rem; }
+.file-info-detail { flex: 1; }
+.file-info-name   { font-weight: 600; color: #1f2937; word-break: break-all; }
+.file-info-meta   { font-size: 0.82rem; color: #6b7280; margin-top: 2px; }
+.file-info-ok     { font-size: 1.4rem; }
+</style>
 {% endblock %}

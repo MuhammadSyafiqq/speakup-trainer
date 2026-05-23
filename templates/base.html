@@ -42,7 +42,10 @@
                 <span class="toggle-label" id="toggle-label">Light</span>
             </button>
             <span class="user-greeting">👋 {{ current_user.username }}</span>
-            <a href="{{ url_for('auth.logout') }}" class="btn-logout">Keluar</a>
+            <!-- Ganti dengan ini: -->
+            <form method="POST" action="{{ url_for('auth.logout') }}" style="display:inline">
+                <button type="submit" class="btn-logout">Keluar</button>
+            </form>
         </div>
         {% else %}
         <div class="nav-links">
@@ -82,7 +85,7 @@
 <!-- Footer -->
 <footer class="footer">
     <p>🎤 SpeakUp — Platform Latihan Public Speaking berbasis AI</p>
-    <p class="footer-sub">Dibuat dengan ❤️ untuk membantu kamu berbicara lebih percaya diri</p>
+    <p class="footer-sub">Dibuat Oleh Muhammad Syafiq Zhalifunnas</p>
 </footer>
 
 <!-- ============================================ -->
@@ -167,7 +170,7 @@
             </button>
         </div>
         <div class="ac-footer-note">
-            ✨ Powered by Gemini 1.5 Flash · Enter untuk kirim · Shift+Enter baris baru
+            Enter untuk kirim · Shift+Enter baris baru
         </div>
     </div>
 

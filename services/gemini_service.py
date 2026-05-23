@@ -3,37 +3,47 @@ import base64
 import json
 import re
 import subprocess
-import google.generativeai as genai
+import time
+import requests
 
 # ============================================
 # KONFIGURASI
 # ============================================
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-MAX_FILE_SIZE_MB = 20  # Batas aman untuk Gemini inline audio
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
+OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+OPENROUTER_MODEL   = 'google/gemini-2.5-flash-lite'
+MAX_FILE_SIZE_MB   = 20  # Batas aman untuk inline audio
 
-# Inisialisasi Gemini
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.5-flash')
 
-def generate_with_retry(prompt):
-    max_retries = 3
+def _call_openrouter(messages: list, max_retries: int = 3) -> str:
+    """Kirim request ke OpenRouter dan kembalikan teks response."""
+    headers = {
+        'Authorization': f'Bearer {OPENROUTER_API_KEY}',
+        'Content-Type': 'application/json',
+    }
+    payload = {
+        'model': OPENROUTER_MODEL,
+        'messages': messages,
+    }
 
     for attempt in range(max_retries):
-        try:
-            response = model.generate_content(prompt)
-            return response.text
-
-        except Exception as e:
-            error_msg = str(e)
-
-            if "429" in error_msg:
-                wait_time = 40
-                print(f"Quota habis. Menunggu {wait_time} detik...")
-                time.sleep(wait_time)
-            else:
-                raise e
+        response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
+        if response.status_code == 200:
+            data = response.json()
+            return data['choices'][0]['message']['content']
+        elif response.status_code == 429:
+            wait_time = int(response.headers.get('Retry-After', 40))
+            print(f"Rate limit hit. Menunggu {wait_time} detik... (percobaan {attempt+1}/{max_retries})")
+            time.sleep(wait_time)
+        else:
+            response.raise_for_status()
 
     raise Exception("Gagal setelah beberapa percobaan")
+
+
+def generate_with_retry(prompt: str) -> str:
+    messages = [{'role': 'user', 'content': prompt}]
+    return _call_openrouter(messages)
 
 
 # ============================================
@@ -377,8 +387,8 @@ def extract_and_normalize(raw_text: str, title: str) -> dict | None:
 def fallback_analysis(title: str, category: str) -> dict:
     """Analisis sederhana berbasis aturan jika Gemini tidak tersedia"""
     return {
-        'transcript_bersih': '[Transkripsi tidak tersedia — Gemini API error]',
-        'transcript_detail': '[Transkripsi tidak tersedia — Gemini API error]',
+        'transcript_bersih': '[Transkripsi tidak tersedia — OpenRouter API error]',
+        'transcript_detail': '[Transkripsi tidak tersedia — OpenRouter API error]',
         'score_clarity': 50,
         'score_structure': 50,
         'score_confidence': 50,
@@ -397,9 +407,9 @@ def fallback_analysis(title: str, category: str) -> dict:
             'hesitation_count': 0,
             'hesitation_detail': 'Tidak dapat dideteksi',
         },
-        'strengths': 'Analisis tidak tersedia karena terjadi error pada Gemini API.',
+        'strengths': 'Analisis tidak tersedia karena terjadi error pada OpenRouter API.',
         'weaknesses': 'Silakan coba lagi atau periksa koneksi internet kamu.',
-        'suggestions': '• Pastikan GEMINI_API_KEY sudah diisi dengan benar di file .env\n• Pastikan koneksi internet stabil\n• Coba rekam ulang dan kirim kembali',
+        'suggestions': '• Pastikan OPENROUTER_API_KEY sudah diisi dengan benar di file .env\n• Pastikan koneksi internet stabil\n• Coba rekam ulang dan kirim kembali',
         'feedback_detail': {
             'clarity': 'Tidak tersedia',
             'structure': 'Tidak tersedia',
@@ -412,11 +422,11 @@ def fallback_analysis(title: str, category: str) -> dict:
 
 
 # ============================================
-# FUNGSI UTAMA — ANALISIS AUDIO DENGAN GEMINI
+# FUNGSI UTAMA — ANALISIS AUDIO DENGAN OPENROUTER
 # ============================================
 def analyze_audio_with_gemini(audio_path: str, title: str, category: str) -> dict:
     """
-    Fungsi utama: kirim audio langsung ke Gemini 1.5 Flash
+    Fungsi utama: kirim audio langsung ke OpenRouter (Gemini 2.5 Flash)
     untuk transkripsi + analisis public speaking sekaligus.
 
     Args:
@@ -429,10 +439,10 @@ def analyze_audio_with_gemini(audio_path: str, title: str, category: str) -> dic
     """
 
     # --- Validasi API Key ---
-    if not GEMINI_API_KEY or GEMINI_API_KEY == 'AIzaSy_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx':
+    if not OPENROUTER_API_KEY or OPENROUTER_API_KEY.startswith('sk-or-xxx'):
         raise ValueError(
-            "GEMINI_API_KEY belum diisi di file .env!\n"
-            "Daftar gratis di: https://aistudio.google.com/app/apikey"
+            "OPENROUTER_API_KEY belum diisi di file .env!\n"
+            "Daftar di: https://openrouter.ai/keys"
         )
 
     # --- Validasi file ada ---
@@ -456,29 +466,37 @@ def analyze_audio_with_gemini(audio_path: str, title: str, category: str) -> dic
             )
 
         # --- Encode audio ke base64 ---
-        print(f"📤 Menyiapkan audio untuk dikirim ke Gemini...")
+        print(f"📤 Menyiapkan audio untuk dikirim ke OpenRouter...")
         audio_b64 = read_audio_as_base64(mp3_path)
         mime_type = get_mime_type(mp3_path)
 
         # --- Bangun prompt ---
         prompt = build_analysis_prompt(title, category)
 
-        # --- Kirim ke Gemini 1.5 Flash ---
-        print(f"🤖 Mengirim audio ke Gemini 1.5 Flash untuk dianalisis...")
-        print(f"   (Gemini akan mendengar audio + transkripsi + analisis sekaligus)")
+        # --- Kirim ke OpenRouter (Gemini 2.5 Flash) ---
+        print(f"🤖 Mengirim audio ke OpenRouter / Gemini 2.5 Flash untuk dianalisis...")
+        print(f"   (Model akan mendengar audio + transkripsi + analisis sekaligus)")
 
-        response = model.generate_content([
+        messages = [
             {
-                'inline_data': {
-                    'mime_type': mime_type,
-                    'data': audio_b64
-                }
-            },
-            prompt
-        ])
+                'role': 'user',
+                'content': [
+                    {
+                        'type': 'image_url',
+                        'image_url': {
+                            'url': f'data:{mime_type};base64,{audio_b64}'
+                        }
+                    },
+                    {
+                        'type': 'text',
+                        'text': prompt
+                    }
+                ]
+            }
+        ]
 
-        raw_text = response.text
-        print(f"✅ Response dari Gemini diterima ({len(raw_text)} karakter)")
+        raw_text = _call_openrouter(messages)
+        print(f"✅ Response dari OpenRouter diterima ({len(raw_text)} karakter)")
 
         # --- Ekstrak & normalisasi JSON ---
         result = extract_and_normalize(raw_text, title)
@@ -487,7 +505,7 @@ def analyze_audio_with_gemini(audio_path: str, title: str, category: str) -> dic
             print("⚠️ Gagal parse JSON dari Gemini, menggunakan fallback...")
             return fallback_analysis(title, category)
 
-        print(f"✅ Analisis Gemini berhasil!")
+        print(f"✅ Analisis OpenRouter berhasil!")
         print(f"   Skor: clarity={result['score_clarity']}, "
               f"structure={result['score_structure']}, "
               f"confidence={result['score_confidence']}")
@@ -520,13 +538,14 @@ if __name__ == '__main__':
         print("Usage  : python gemini_service.py <audio> <judul> <kategori>")
         print("Contoh : python gemini_service.py rekaman.webm \"Pentingnya Pendidikan\" pidato")
         print("Kategori: pidato | wawancara | presentasi | debat | mc | storytelling")
+        print("API    : OpenRouter — set OPENROUTER_API_KEY di .env")
         sys.exit(1)
 
     audio  = sys.argv[1]
     judul  = sys.argv[2]
     kat    = sys.argv[3]
 
-    print(f"\n🎤 Testing Gemini 1.5 Flash Audio Analysis")
+    print(f"\n🎤 Testing OpenRouter / Gemini 2.5 Flash Audio Analysis")
     print(f"📁 Audio    : {audio}")
     print(f"📝 Judul    : {judul}")
     print(f"🎯 Kategori : {kat}")

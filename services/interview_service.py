@@ -1,14 +1,16 @@
-
 import time
 import requests
 from extensions import db
 from models.interview_session import InterviewSession
 
+OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+OPENROUTER_MODEL   = 'google/gemini-2.5-flash-lite'
+
 
 class InterviewService:
-    def __init__(self, gemini_api_key, gemini_api_url):
-        self.gemini_api_key = gemini_api_key
-        self.gemini_api_url = gemini_api_url
+    def __init__(self, openrouter_api_key, **kwargs):
+        # Terima openrouter_api_key; parameter lama (gemini_api_url) diabaikan
+        self.openrouter_api_key = openrouter_api_key
 
     def get_or_create_session(self, session_id, position_label, company, total_q=5, language='id', user_id=None):
         session_obj = InterviewSession.query.filter_by(session_id=session_id).first()
@@ -17,7 +19,7 @@ class InterviewService:
 
         # generate pertanyaan
         prompt = f"Buat {total_q} pertanyaan wawancara untuk posisi {position_label} di perusahaan {company}. Bahasa: {language}."
-        questions_list = self._call_gemini_api(prompt, total_q)
+        questions_list = self._call_openrouter(prompt, total_q)
 
         session_obj = InterviewSession(
             user_id=user_id,
@@ -32,27 +34,77 @@ class InterviewService:
         db.session.commit()
         return session_obj
 
-    def _call_gemini_api(self, prompt, total_q, max_retries=3):
+    def _call_openrouter(self, prompt, total_q, max_retries=3):
         headers = {
-            "Authorization": f"Bearer {self.gemini_api_key}",
-            "Content-Type": "application/json"
+            'Authorization': f'Bearer {self.openrouter_api_key}',
+            'Content-Type': 'application/json',
         }
         payload = {
-            "prompt": prompt,
-            "temperature": 0.7,
-            "candidate_count": total_q
+            'model': OPENROUTER_MODEL,
+            'messages': [
+                {
+                    'role': 'user',
+                    'content': (
+                        f"{prompt}\n\n"
+                        f"Berikan tepat {total_q} pertanyaan, satu per baris, tanpa penomoran."
+                    )
+                }
+            ],
         }
 
         for attempt in range(max_retries):
-            response = requests.post(self.gemini_api_url, headers=headers, json=payload)
+            response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
             if response.status_code == 200:
-                data = response.json()
-                return [c['content'][0]['text'] for c in data.get('candidates', [])]
+                # Pastikan response bukan HTML sebelum parse JSON
+                content_type = response.headers.get('Content-Type', '')
+                if 'text/html' in content_type or response.text.strip().startswith('<'):
+                    print(f"OpenRouter mengembalikan HTML pada attempt {attempt+1}, "
+                          f"status 200 tapi bukan JSON. Response awal: {response.text[:200]}")
+                    if attempt < max_retries - 1:
+                        time.sleep(2)
+                        continue
+                    break
+
+                try:
+                    data = response.json()
+                except ValueError as e:
+                    print(f"Gagal parse JSON OpenRouter: {e}. Response: {response.text[:200]}")
+                    if attempt < max_retries - 1:
+                        time.sleep(2)
+                        continue
+                    break
+
+                if 'error' in data:
+                    err = data['error']
+                    if isinstance(err, dict):
+                        err = err.get('message', str(err))
+                    print(f"OpenRouter API error: {err}")
+                    break
+
+                text = data['choices'][0]['message']['content']
+                # Pisahkan tiap baris menjadi list pertanyaan
+                questions = [q.strip() for q in text.strip().splitlines() if q.strip()]
+                # Pastikan jumlah sesuai total_q
+                if len(questions) < total_q:
+                    questions += [f"Pertanyaan {i+1}" for i in range(len(questions), total_q)]
+                return questions[:total_q]
+
             elif response.status_code == 429:
                 retry_after = int(response.headers.get('Retry-After', 10))
                 print(f"Rate limit hit. Retrying in {retry_after} seconds...")
                 time.sleep(retry_after)
             else:
-                response.raise_for_status()
+                # Cek apakah error response berupa HTML
+                content_type = response.headers.get('Content-Type', '')
+                if 'text/html' in content_type or response.text.strip().startswith('<'):
+                    print(f"OpenRouter error {response.status_code}: response berupa HTML "
+                          f"(kemungkinan API key tidak valid atau layanan gangguan)")
+                else:
+                    print(f"OpenRouter error {response.status_code}: {response.text[:300]}")
+
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                else:
+                    response.raise_for_status()
+
         return [f"Pertanyaan {i+1} gagal dimuat" for i in range(total_q)]
-    

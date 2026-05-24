@@ -1,281 +1,309 @@
-// ============================================
-// SPEAKUP AI AGENT — CHATBOX JAVASCRIPT
-// ============================================
+// ── State ──
+let chatOpen   = false;
+let isTyping   = false;
 
-// State
-let chatOpen = false;
-let isTyping = false;
-let chatHistory = []; // [{role: 'user'|'assistant', content: '...'}]
+// Key di sessionStorage per user (username diambil dari DOM)
+function storageKey() {
+    const el = document.querySelector('[data-username]');
+    const user = el ? el.dataset.username : 'guest';
+    return `speakup_chat_${user}`;
+}
+
+// Load history dari sessionStorage
+function loadHistory() {
+    try {
+        const raw = sessionStorage.getItem(storageKey());
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+}
+
+// Simpan history ke sessionStorage
+function saveHistory(history) {
+    try {
+        // Simpan maks 40 pesan agar tidak membengkak
+        const trimmed = history.slice(-40);
+        sessionStorage.setItem(storageKey(), JSON.stringify(trimmed));
+    } catch { /* storage full — abaikan */ }
+}
+
+// Hapus history (dipanggil saat logout)
+function clearHistoryStorage() {
+    try { sessionStorage.removeItem(storageKey()); } catch {}
+}
+
+// Expose ke global agar bisa dipanggil dari logout handler
+window.clearAgentHistory = clearHistoryStorage;
+
+let chatHistory = loadHistory();
 
 // ============================================
 // TOGGLE BUKA / TUTUP CHAT
 // ============================================
 function toggleAgentChat() {
-  const chat = document.getElementById("agent-chat");
-  const fab = document.querySelector(".agent-fab");
-  chatOpen = !chatOpen;
+    const chat = document.getElementById('agent-chat');
+    const fab  = document.querySelector('.agent-fab');
+    chatOpen = !chatOpen;
 
-  if (chatOpen) {
-    chat.classList.add("open");
-    fab.classList.add("active");
-    document.getElementById("fab-icon").textContent = "✕";
-    document.getElementById("ac-input").focus();
-    hideFabNotif();
-    // Scroll ke bawah
-    scrollToBottom();
-  } else {
-    chat.classList.remove("open");
-    fab.classList.remove("active");
-    document.getElementById("fab-icon").textContent = "✍️";
-  }
+    if (chatOpen) {
+        chat.classList.add('open');
+        fab?.classList.add('active');
+        document.getElementById('fab-icon').textContent = '✕';
+        hideFabNotif();
+
+        // Render ulang history jika ada, lalu scroll ke bawah
+        restoreChat();
+        setTimeout(scrollToBottom, 80);
+        setTimeout(() => document.getElementById('ac-input')?.focus(), 200);
+    } else {
+        chat.classList.remove('open');
+        fab?.classList.remove('active');
+        document.getElementById('fab-icon').textContent = '✍️';
+    }
+}
+
+// ============================================
+// RESTORE CHAT DARI HISTORY
+// ============================================
+function restoreChat() {
+    const container = document.getElementById('ac-messages');
+    if (!container) return;
+
+    // Jika history kosong, biarkan welcome message tetap ada
+    if (chatHistory.length === 0) return;
+
+    // Cek apakah sudah di-render (tandai dengan data-restored)
+    if (container.dataset.restored === '1') return;
+    container.dataset.restored = '1';
+
+    // Kosongkan welcome message awal lalu render semua history
+    container.innerHTML = '';
+    chatHistory.forEach(msg => {
+        appendMessageDOM(msg.role, msg.content, msg.time || '');
+    });
 }
 
 // ============================================
 // QUICK PROMPT — Klik chip kategori
 // ============================================
 async function quickPrompt(category) {
-  // Sembunyikan chips setelah dipilih
-  document.getElementById("ac-chips").style.display = "none";
+    document.getElementById('ac-chips').style.display = 'none';
 
-  const labels = {
-    pidato: "🎤 Pidato Formal",
-    wawancara: "💼 Wawancara Kerja",
-    presentasi: "📊 Presentasi",
-    debat: "⚖️ Debat",
-    mc: "🎭 Master of Ceremony",
-    storytelling: "📖 Storytelling",
-  };
+    const labels = {
+        pidato       : '🎤 Pidato Formal',
+        wawancara    : '💼 Wawancara Kerja',
+        presentasi   : '📊 Presentasi',
+        debat        : '⚖️ Debat',
+        mc           : '🎭 Master of Ceremony',
+        storytelling : '📖 Storytelling',
+    };
 
-  const userMsg = `Halo! Saya ingin membuat naskah untuk kategori ${labels[category]}. Tolong bantu saya!`;
-  appendMessage("user", userMsg);
-  chatHistory.push({ role: "user", content: userMsg });
-  await sendToAgent(userMsg);
+    const userMsg = `Halo! Saya ingin membuat naskah untuk kategori ${labels[category]}. Tolong bantu saya!`;
+    appendMessageDOM('user', userMsg);
+    pushHistory('user', userMsg);
+    await sendToAgent(userMsg);
 }
 
 // ============================================
 // HANDLE ENTER KEY
 // ============================================
 function handleEnter(e) {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
 }
 
 // ============================================
 // KIRIM PESAN USER
 // ============================================
 async function sendMessage() {
-  const input = document.getElementById("ac-input");
-  const msg = input.value.trim();
+    const input = document.getElementById('ac-input');
+    const msg   = input.value.trim();
+    if (!msg || isTyping) return;
 
-  if (!msg || isTyping) return;
+    input.value = '';
+    input.style.height = 'auto';
 
-  // Reset input
-  input.value = "";
-  input.style.height = "auto";
+    document.getElementById('ac-chips').style.display = 'none';
 
-  // Sembunyikan chips jika masih ada
-  document.getElementById("ac-chips").style.display = "none";
-
-  // Tampilkan pesan user
-  appendMessage("user", msg);
-  chatHistory.push({ role: "user", content: msg });
-
-  // Kirim ke AI
-  await sendToAgent(msg);
+    appendMessageDOM('user', msg);
+    pushHistory('user', msg);
+    await sendToAgent(msg);
 }
 
 // ============================================
 // KIRIM KE BACKEND AGENT
 // ============================================
 async function sendToAgent(userMsg) {
-  if (isTyping) return;
-  isTyping = true;
+    if (isTyping) return;
+    isTyping = true;
 
-  // Tampilkan typing indicator
-  const typingId = showTyping();
+    const typingId = showTyping();
 
-  try {
-    const res = await fetch("/agent/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: userMsg,
-        messages: chatHistory.slice(-10), // kirim max 10 pesan terakhir
-      }),
-    });
+    try {
+        const res = await fetch('/agent/chat', {
+            method  : 'POST',
+            headers : { 'Content-Type': 'application/json' },
+            body    : JSON.stringify({
+                message  : userMsg,
+                messages : chatHistory.slice(-10),
+            }),
+        });
 
-    const data = await res.json();
-    removeTyping(typingId);
+        const data = await res.json();
+        removeTyping(typingId);
 
-    if (data.success && data.reply) {
-      appendMessage("assistant", data.reply);
-      chatHistory.push({ role: "assistant", content: data.reply });
-
-      // Notif jika chat tertutup
-      if (!chatOpen) showFabNotif();
-    } else {
-      appendError(data.error || "Terjadi kesalahan, coba lagi.");
+        if (data.success && data.reply) {
+            appendMessageDOM('assistant', data.reply);
+            pushHistory('assistant', data.reply);
+            if (!chatOpen) showFabNotif();
+        } else {
+            appendError(data.error || 'Terjadi kesalahan, coba lagi.');
+        }
+    } catch (err) {
+        removeTyping(typingId);
+        appendError('Koneksi gagal. Periksa internet kamu.');
+        console.error('Agent error:', err);
+    } finally {
+        isTyping = false;
     }
-  } catch (err) {
-    removeTyping(typingId);
-    appendError("Koneksi gagal. Periksa internet kamu.");
-    console.error("Agent error:", err);
-  } finally {
-    isTyping = false;
-  }
 }
 
 // ============================================
-// TAMPILKAN PESAN DI CHAT
+// PUSH KE HISTORY & SIMPAN
 // ============================================
-function appendMessage(role, content) {
-  const container = document.getElementById("ac-messages");
-  const isBot = role === "assistant";
+function pushHistory(role, content) {
+    const time = nowTime();
+    chatHistory.push({ role, content, time });
+    saveHistory(chatHistory);
+}
 
-  const div = document.createElement("div");
-  div.className = `ac-msg ${isBot ? "bot" : "user"}`;
+function nowTime() {
+    const d = new Date();
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
 
-  const now = new Date();
-  const timeStr =
-    now.getHours().toString().padStart(2, "0") +
-    ":" +
-    now.getMinutes().toString().padStart(2, "0");
+// ============================================
+// TAMPILKAN PESAN DI CHAT (DOM only)
+// ============================================
+function appendMessageDOM(role, content, timeStr) {
+    const container = document.getElementById('ac-messages');
+    if (!container) return;
 
-  // Format markdown sederhana untuk naskah
-  const formatted = formatMessage(content);
+    const isBot = role === 'assistant';
+    const time  = timeStr || nowTime();
+    const div   = document.createElement('div');
+    div.className = `ac-msg ${isBot ? 'bot' : 'user'}`;
 
-  div.innerHTML = isBot
-    ? `<div class="msg-avatar">🤖</div>
+    const formatted = formatMessage(content);
+
+    div.innerHTML = isBot
+        ? `<div class="msg-avatar">🤖</div>
            <div class="msg-bubble">
                ${formatted}
                <div class="msg-actions">
                    <button onclick="copyText(this)" class="msg-action-btn" title="Salin">📋 Salin</button>
                    <button onclick="downloadNaskah(this)" class="msg-action-btn" title="Unduh">⬇️ Unduh</button>
                </div>
-               <div class="msg-time">${timeStr}</div>
+               <div class="msg-time">${time}</div>
            </div>`
-    : `<div class="msg-bubble user-bubble">
+        : `<div class="msg-bubble user-bubble">
                ${formatted}
-               <div class="msg-time">${timeStr}</div>
+               <div class="msg-time">${time}</div>
            </div>
            <div class="msg-avatar user-av">👤</div>`;
 
-  container.appendChild(div);
-
-  // Animasi masuk
-  setTimeout(() => div.classList.add("visible"), 10);
-
-  scrollToBottom();
+    container.appendChild(div);
+    setTimeout(() => div.classList.add('visible'), 10);
+    scrollToBottom();
 }
+
+// Legacy alias agar tidak break kode lama
+function appendMessage(role, content) { appendMessageDOM(role, content); }
 
 // ============================================
 // FORMAT PESAN (Markdown sederhana)
 // ============================================
 function formatMessage(text) {
-  return (
-    text
-      // Bold **text**
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      // Italic *text*
-      .replace(/\*(.*?)\*/g, "<em>$1</em>")
-      // Heading ### text
-      .replace(/^### (.+)$/gm, "<h4>$1</h4>")
-      .replace(/^## (.+)$/gm, "<h3>$1</h3>")
-      .replace(/^# (.+)$/gm, "<h2>$1</h2>")
-      // List - item
-      .replace(/^[\-\*] (.+)$/gm, "<li>$1</li>")
-      .replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>")
-      // Numbered list
-      .replace(/^\d+\. (.+)$/gm, "<li>$1</li>")
-      // Line breaks
-      .replace(/\n\n/g, "</p><p>")
-      .replace(/\n/g, "<br>")
-      // Wrap in p
-      .replace(/^(.+)/, "<p>$1")
-      .replace(/(.+)$/, "$1</p>")
-  );
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g,     '<em>$1</em>')
+        .replace(/^### (.+)$/gm,  '<h4>$1</h4>')
+        .replace(/^## (.+)$/gm,   '<h3>$1</h3>')
+        .replace(/^# (.+)$/gm,    '<h2>$1</h2>')
+        .replace(/^[\-\*] (.+)$/gm,'<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/gs,'<ul>$1</ul>')
+        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g,   '<br>')
+        .replace(/^(.+)/,  '<p>$1')
+        .replace(/(.+)$/, '$1</p>');
 }
 
 // ============================================
 // TYPING INDICATOR
 // ============================================
 function showTyping() {
-  const container = document.getElementById("ac-messages");
-  const id = "typing-" + Date.now();
-  const div = document.createElement("div");
-  div.id = id;
-  div.className = "ac-msg bot typing-msg";
-  div.innerHTML = `
+    const container = document.getElementById('ac-messages');
+    const id  = 'typing-' + Date.now();
+    const div = document.createElement('div');
+    div.id        = id;
+    div.className = 'ac-msg bot typing-msg';
+    div.innerHTML = `
         <div class="msg-avatar">🤖</div>
         <div class="msg-bubble typing-bubble">
-            <div class="typing-dots">
-                <span></span><span></span><span></span>
-            </div>
+            <div class="typing-dots"><span></span><span></span><span></span></div>
             <div class="typing-label">Gemini sedang menulis naskah...</div>
         </div>`;
-  container.appendChild(div);
-  setTimeout(() => div.classList.add("visible"), 10);
-  scrollToBottom();
-  return id;
+    container.appendChild(div);
+    setTimeout(() => div.classList.add('visible'), 10);
+    scrollToBottom();
+    return id;
 }
 
 function removeTyping(id) {
-  const el = document.getElementById(id);
-  if (el) el.remove();
+    document.getElementById(id)?.remove();
 }
 
 // ============================================
 // PESAN ERROR
 // ============================================
 function appendError(msg) {
-  const container = document.getElementById("ac-messages");
-  const div = document.createElement("div");
-  div.className = "ac-msg bot";
-  div.innerHTML = `
+    const container = document.getElementById('ac-messages');
+    const div = document.createElement('div');
+    div.className = 'ac-msg bot';
+    div.innerHTML = `
         <div class="msg-avatar">🤖</div>
         <div class="msg-bubble error-bubble">
             <p>❌ ${msg}</p>
-            <div class="msg-time">${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</div>
+            <div class="msg-time">${nowTime()}</div>
         </div>`;
-  container.appendChild(div);
-  setTimeout(() => div.classList.add("visible"), 10);
-  scrollToBottom();
+    container.appendChild(div);
+    setTimeout(() => div.classList.add('visible'), 10);
+    scrollToBottom();
 }
 
 // ============================================
 // SALIN TEKS NASKAH
 // ============================================
 function copyText(btn) {
-  const bubble = btn.closest(".msg-bubble");
-  // Ambil teks tanpa tombol actions dan waktu
-  const clone = bubble.cloneNode(true);
-  clone
-    .querySelectorAll(".msg-actions, .msg-time")
-    .forEach((el) => el.remove());
-  const text = clone.innerText.trim();
+    const bubble = btn.closest('.msg-bubble');
+    const clone  = bubble.cloneNode(true);
+    clone.querySelectorAll('.msg-actions,.msg-time').forEach(el => el.remove());
+    const text = clone.innerText.trim();
 
-  navigator.clipboard
-    .writeText(text)
-    .then(() => {
-      btn.textContent = "✅ Disalin!";
-      setTimeout(() => {
-        btn.textContent = "📋 Salin";
-      }, 2000);
-    })
-    .catch(() => {
-      // Fallback untuk browser lama
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      btn.textContent = "✅ Disalin!";
-      setTimeout(() => {
-        btn.textContent = "📋 Salin";
-      }, 2000);
+    navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = '✅ Disalin!';
+        setTimeout(() => { btn.textContent = '📋 Salin'; }, 2000);
+    }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btn.textContent = '✅ Disalin!';
+        setTimeout(() => { btn.textContent = '📋 Salin'; }, 2000);
     });
 }
 
@@ -283,84 +311,82 @@ function copyText(btn) {
 // UNDUH NASKAH SEBAGAI FILE TXT
 // ============================================
 function downloadNaskah(btn) {
-  const bubble = btn.closest(".msg-bubble");
-  const clone = bubble.cloneNode(true);
-  clone
-    .querySelectorAll(".msg-actions, .msg-time")
-    .forEach((el) => el.remove());
-  const text = clone.innerText.trim();
+    const bubble = btn.closest('.msg-bubble');
+    const clone  = bubble.cloneNode(true);
+    clone.querySelectorAll('.msg-actions,.msg-time').forEach(el => el.remove());
+    const text = clone.innerText.trim();
 
-  const filename = `naskah-speakup-${Date.now()}.txt`;
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `naskah-speakup-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
 
-  btn.textContent = "✅ Diunduh!";
-  setTimeout(() => {
-    btn.textContent = "⬇️ Unduh";
-  }, 2000);
+    btn.textContent = '✅ Diunduh!';
+    setTimeout(() => { btn.textContent = '⬇️ Unduh'; }, 2000);
 }
 
 // ============================================
-// BERSIHKAN CHAT
+// BERSIHKAN CHAT (tombol 🗑️)
 // ============================================
 function clearChat() {
-  if (!confirm("Hapus semua percakapan?")) return;
+    if (!confirm('Hapus semua percakapan?')) return;
 
-  chatHistory = [];
+    chatHistory = [];
+    saveHistory(chatHistory);
 
-  const container = document.getElementById("ac-messages");
-  container.innerHTML = `
+    const container = document.getElementById('ac-messages');
+    container.dataset.restored = '0';
+    container.innerHTML = `
         <div class="ac-msg bot visible">
             <div class="msg-avatar">🤖</div>
             <div class="msg-bubble">
                 <p>Chat dibersihkan. Ada yang bisa saya bantu? 😊</p>
                 <p>Pilih kategori atau ketik kebutuhanmu!</p>
-                <div class="msg-time">Sekarang</div>
+                <div class="msg-time">${nowTime()}</div>
             </div>
         </div>`;
 
-  document.getElementById("ac-chips").style.display = "block";
+    document.getElementById('ac-chips').style.display = 'block';
 }
 
 // ============================================
 // SCROLL KE BAWAH
 // ============================================
 function scrollToBottom() {
-  const container = document.getElementById("ac-messages");
-  if (container) {
-    setTimeout(() => {
-      container.scrollTop = container.scrollHeight;
-    }, 100);
-  }
+    const container = document.getElementById('ac-messages');
+    if (container) {
+        setTimeout(() => { container.scrollTop = container.scrollHeight; }, 80);
+    }
 }
 
 // ============================================
 // NOTIFIKASI FAB
 // ============================================
 function showFabNotif() {
-  const notif = document.getElementById("fab-notif");
-  if (notif) notif.style.display = "flex";
+    const notif = document.getElementById('fab-notif');
+    if (notif) notif.style.display = 'flex';
 }
-
 function hideFabNotif() {
-  const notif = document.getElementById("fab-notif");
-  if (notif) notif.style.display = "none";
+    const notif = document.getElementById('fab-notif');
+    if (notif) notif.style.display = 'none';
 }
 
 // ============================================
 // AUTO-RESIZE TEXTAREA
 // ============================================
-document.addEventListener("DOMContentLoaded", () => {
-  const textarea = document.getElementById("ac-input");
-  if (textarea) {
-    textarea.addEventListener("input", () => {
-      textarea.style.height = "auto";
-      textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
-    });
-  }
+document.addEventListener('DOMContentLoaded', () => {
+    const textarea = document.getElementById('ac-input');
+    if (textarea) {
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+        });
+    }
+
+    // Tandai welcome msg agar tidak ikut dihapus jika history kosong
+    const container = document.getElementById('ac-messages');
+    if (container) container.dataset.restored = chatHistory.length > 0 ? '0' : '1';
 });

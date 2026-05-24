@@ -1,8 +1,8 @@
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, abort
 from flask_login import login_required, current_user
 from models.session import PracticeSession
 from extensions import db
-import json
+import os
 
 history_bp = Blueprint('history', __name__)
 
@@ -20,11 +20,13 @@ def history():
     if category_filter:
         query = query.filter_by(category=category_filter)
 
+    # error_out=False → halaman kosong return 200, bukan 404
     sessions = query.order_by(
         PracticeSession.created_at.desc()
-    ).paginate(page=page, per_page=10)
+    ).paginate(page=page, per_page=10, error_out=False)
 
     return render_template('history.html', sessions=sessions, category_filter=category_filter)
+
 
 @history_bp.route('/history/chart-data')
 @login_required
@@ -36,7 +38,6 @@ def chart_data():
         status='completed'
     )
 
-    # 🔥 TAMBAHKAN FILTER INI
     if category_filter:
         sessions = sessions.filter_by(category=category_filter)
 
@@ -69,7 +70,6 @@ def chart_data():
         data['categories'].append(s.category)
         data['titles'].append(s.title)
 
-    # Statistik ringkasan
     all_scores = [s.score_total for s in sessions if s.score_total]
     data['stats'] = {
         'total_sessions': len(sessions),
@@ -81,14 +81,17 @@ def chart_data():
 
     return jsonify(data)
 
+
 @history_bp.route('/history/delete/<int:session_id>', methods=['POST'])
 @login_required
 def delete_session(session_id):
-    session = PracticeSession.query.get_or_404(session_id)
+    session = db.session.get(PracticeSession, session_id)
+    if session is None:
+        abort(404)
+
     if session.user_id != current_user.id:
         return jsonify({'success': False, 'error': 'Akses ditolak'}), 403
 
-    import os
     if session.audio_path and os.path.exists(session.audio_path):
         os.remove(session.audio_path)
 

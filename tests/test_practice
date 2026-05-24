@@ -1,0 +1,408 @@
+# tests/test_practice.py
+# ─────────────────────────────────────────────────────────────────────────────
+# Unit test untuk routes/practice.py
+#   - GET /dashboard
+#   - GET /practice/select-category
+#   - GET /practice/setup
+#   - GET /practice/record
+#   - POST /practice/upload-audio
+#   - POST /practice/process/<id>
+#   - GET /practice/result/<id>
+#   - GET /practice/status/<id>
+# ─────────────────────────────────────────────────────────────────────────────
+
+import pytest
+import json
+import io
+from unittest.mock import patch, MagicMock
+from models.session import PracticeSession
+from extensions import db
+
+
+# =============================================================================
+# GET /dashboard
+# =============================================================================
+
+class TestDashboard:
+
+    def test_dashboard_requires_login(self, client):
+        """Dashboard harus redirect jika belum login."""
+        response = client.get('/dashboard')
+        assert response.status_code == 302
+        assert '/login' in response.headers['Location']
+
+    def test_dashboard_renders(self, logged_in_client):
+        """Dashboard harus render dengan status 200 untuk user yang login."""
+        response = logged_in_client.get('/dashboard')
+        assert response.status_code == 200
+
+    def test_dashboard_shows_stats(self, logged_in_client, multiple_sessions):
+        """Dashboard harus menampilkan statistik dari sesi yang ada."""
+        response = logged_in_client.get('/dashboard')
+        assert response.status_code == 200
+        # Pastikan halaman berhasil render (tidak error)
+        assert b'<!DOCTYPE html>' in response.data or b'<html' in response.data
+
+
+# =============================================================================
+# GET /practice/select-category
+# =============================================================================
+
+class TestSelectCategory:
+
+    def test_select_category_requires_login(self, client):
+        """Select category harus redirect jika belum login."""
+        response = client.get('/practice/select-category')
+        assert response.status_code == 302
+
+    def test_select_category_renders(self, logged_in_client):
+        """Select category harus render status 200."""
+        response = logged_in_client.get('/practice/select-category')
+        assert response.status_code == 200
+
+
+# =============================================================================
+# GET /practice/setup
+# =============================================================================
+
+class TestSetupPractice:
+
+    def test_setup_requires_login(self, client):
+        """Setup practice harus redirect jika belum login."""
+        response = client.get('/practice/setup?category=pidato')
+        assert response.status_code == 302
+
+    def test_setup_without_category_redirects(self, logged_in_client):
+        """Akses /practice/setup tanpa parameter category harus redirect ke select-category."""
+        response = logged_in_client.get('/practice/setup')
+        assert response.status_code == 302
+        assert 'select-category' in response.headers['Location']
+
+    def test_setup_invalid_category_redirects(self, logged_in_client):
+        """Kategori yang tidak valid harus redirect ke select-category."""
+        response = logged_in_client.get('/practice/setup?category=invalid_xyz')
+        assert response.status_code == 302
+
+    def test_setup_valid_category_renders(self, logged_in_client):
+        """Kategori valid harus menampilkan form setup."""
+        response = logged_in_client.get('/practice/setup?category=pidato')
+        assert response.status_code == 200
+
+    def test_setup_wawancara_redirects_to_interview_setup(self, logged_in_client):
+        """Kategori 'wawancara' harus redirect ke halaman interview setup."""
+        response = logged_in_client.get('/practice/setup?category=wawancara')
+        assert response.status_code == 302
+
+    def test_setup_post_without_title_shows_error(self, logged_in_client):
+        """POST setup tanpa judul harus kembali ke form dengan pesan error."""
+        response = logged_in_client.post('/practice/setup?category=pidato', data={
+            'category': 'pidato',
+            'title': ''
+        })
+        assert response.status_code == 200
+
+    def test_setup_post_with_title_redirects_to_record(self, logged_in_client):
+        """POST setup dengan judul valid harus redirect ke /practice/record."""
+        response = logged_in_client.post('/practice/setup?category=pidato', data={
+            'category': 'pidato',
+            'title': 'Pidato Kemerdekaan'
+        })
+        assert response.status_code == 302
+        assert 'record' in response.headers['Location']
+
+
+# =============================================================================
+# GET /practice/record
+# =============================================================================
+
+class TestRecord:
+
+    def test_record_requires_login(self, client):
+        """Halaman record harus redirect jika belum login."""
+        response = client.get('/practice/record?category=pidato&title=Test')
+        assert response.status_code == 302
+
+    def test_record_without_params_redirects(self, logged_in_client):
+        """Akses /practice/record tanpa category/title harus redirect."""
+        response = logged_in_client.get('/practice/record')
+        assert response.status_code == 302
+
+    def test_record_with_valid_params(self, logged_in_client):
+        """Akses /practice/record dengan parameter lengkap harus render halaman."""
+        response = logged_in_client.get('/practice/record?category=pidato&title=Test+Pidato')
+        assert response.status_code == 200
+
+
+# =============================================================================
+# POST /practice/upload-audio
+# =============================================================================
+
+class TestUploadAudio:
+
+    def test_upload_requires_login(self, client):
+        """Upload audio harus redirect jika belum login."""
+        response = client.post('/practice/upload-audio')
+        assert response.status_code == 302
+
+    def test_upload_without_audio_file_returns_400(self, logged_in_client):
+        """POST tanpa file audio harus return 400."""
+        response = logged_in_client.post('/practice/upload-audio', data={
+            'category': 'pidato',
+            'title': 'Test'
+        })
+        assert response.status_code == 400
+        data = json.loads(response.data)
+        assert data['success'] is False
+
+    def test_upload_valid_audio_creates_session(self, logged_in_client, app, tmp_path):
+        """Upload audio yang valid harus membuat PracticeSession baru di DB."""
+        # Simulasi file audio
+        fake_audio = io.BytesIO(b'fake webm audio content')
+        fake_audio.name = 'test.webm'
+
+        response = logged_in_client.post('/practice/upload-audio', data={
+            'audio': (fake_audio, 'test.webm', 'audio/webm'),
+            'category': 'pidato',
+            'title': 'Test Pidato Upload',
+            'duration': '10'
+        }, content_type='multipart/form-data')
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert 'session_id' in data
+
+    def test_upload_invalid_category_uses_fallback(self, logged_in_client, tmp_path):
+        """Upload dengan kategori tidak valid harus fallback ke 'pidato'."""
+        fake_audio = io.BytesIO(b'fake audio')
+        response = logged_in_client.post('/practice/upload-audio', data={
+            'audio': (fake_audio, 'test.webm', 'audio/webm'),
+            'category': 'kategori_tidak_valid',
+            'title': 'Test',
+            'duration': '5'
+        }, content_type='multipart/form-data')
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] is True
+        # Kategori fallback adalah 'pidato'
+        assert data['category'] == 'pidato'
+
+    def test_upload_empty_title_uses_default(self, logged_in_client):
+        """Upload dengan judul kosong harus menggunakan judul default."""
+        fake_audio = io.BytesIO(b'fake audio')
+        response = logged_in_client.post('/practice/upload-audio', data={
+            'audio': (fake_audio, 'test.webm', 'audio/webm'),
+            'category': 'pidato',
+            'title': '',
+            'duration': '5'
+        }, content_type='multipart/form-data')
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert data['title'] == 'Latihan tanpa judul'
+
+
+# =============================================================================
+# POST /practice/process/<id>
+# =============================================================================
+
+class TestProcessSession:
+
+    def test_process_requires_login(self, client, practice_session):
+        """Process session harus redirect jika belum login."""
+        response = client.post(f'/practice/process/{practice_session.id}')
+        assert response.status_code == 302
+
+    def test_process_other_users_session_returns_403(
+        self, logged_in_client, app, second_user
+    ):
+        """Tidak boleh memproses sesi milik user lain — harus 403."""
+        with app.app_context():
+            other_session = PracticeSession(
+                user_id=second_user.id,
+                category='pidato', title='Sesi User Lain',
+                status='processing',
+                score_clarity=0, score_structure=0, score_confidence=0,
+                score_relevance=0, score_vocabulary=0, score_fluency=0,
+            )
+            db.session.add(other_session)
+            db.session.commit()
+            sid = other_session.id
+
+        response = logged_in_client.post(f'/practice/process/{sid}')
+        assert response.status_code == 403
+
+    def test_process_nonexistent_session_returns_404(self, logged_in_client):
+        """Process sesi yang tidak ada harus 404."""
+        response = logged_in_client.post('/practice/process/99999')
+        assert response.status_code == 404
+
+    @patch('routes.practice.analyze_audio_with_gemini')
+    def test_process_session_success(
+        self, mock_analyze, logged_in_client, app, verified_user, tmp_path
+    ):
+        """Process session sukses harus mengupdate skor dan status menjadi 'completed'."""
+        # Buat file audio palsu
+        audio_file = tmp_path / 'audio.webm'
+        audio_file.write_bytes(b'fake audio')
+
+        with app.app_context():
+            s = PracticeSession(
+                user_id=verified_user.id,
+                category='pidato', title='Test Process',
+                status='processing', audio_path=str(audio_file),
+                score_clarity=0, score_structure=0, score_confidence=0,
+                score_relevance=0, score_vocabulary=0, score_fluency=0,
+            )
+            db.session.add(s)
+            db.session.commit()
+            sid = s.id
+
+        # Mock return value dari analyze_audio_with_gemini
+        mock_analyze.return_value = {
+            'transcript_bersih': 'Ini adalah transkrip test.',
+            'score_clarity': 80,
+            'score_structure': 75,
+            'score_confidence': 85,
+            'score_relevance': 78,
+            'score_vocabulary': 82,
+            'score_fluency': 80,
+            'strengths': 'Bagus',
+            'weaknesses': 'Perlu perbaikan',
+            'suggestions': '• Latih lebih sering',
+            'feedback_detail': {'clarity': 'Jelas'},
+            'transcript_detail': 'Detail transkrip',
+            'audio_analysis': {},
+        }
+
+        response = logged_in_client.post(f'/practice/process/{sid}')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert data['session_id'] == sid
+
+        # Verifikasi DB diupdate
+        with app.app_context():
+            updated = db.session.get(PracticeSession, sid)
+            assert updated.status == 'completed'
+            assert updated.transcript == 'Ini adalah transkrip test.'
+            assert updated.score_clarity == 80
+
+    @patch('routes.practice.analyze_audio_with_gemini')
+    def test_process_session_error_sets_status_error(
+        self, mock_analyze, logged_in_client, app, verified_user, tmp_path
+    ):
+        """Jika analyze gagal, status sesi harus berubah menjadi 'error'."""
+        audio_file = tmp_path / 'audio2.webm'
+        audio_file.write_bytes(b'fake audio')
+
+        with app.app_context():
+            s = PracticeSession(
+                user_id=verified_user.id,
+                category='pidato', title='Test Error',
+                status='processing', audio_path=str(audio_file),
+                score_clarity=0, score_structure=0, score_confidence=0,
+                score_relevance=0, score_vocabulary=0, score_fluency=0,
+            )
+            db.session.add(s)
+            db.session.commit()
+            sid = s.id
+
+        mock_analyze.side_effect = Exception("API Error")
+
+        response = logged_in_client.post(f'/practice/process/{sid}')
+        assert response.status_code == 500
+        data = json.loads(response.data)
+        assert data['success'] is False
+
+        with app.app_context():
+            updated = db.session.get(PracticeSession, sid)
+            assert updated.status == 'error'
+
+
+# =============================================================================
+# GET /practice/result/<id>
+# =============================================================================
+
+class TestResult:
+
+    def test_result_requires_login(self, client, practice_session):
+        """Halaman result harus redirect jika belum login."""
+        response = client.get(f'/practice/result/{practice_session.id}')
+        assert response.status_code == 302
+
+    def test_result_renders_own_session(self, logged_in_client, practice_session):
+        """User bisa melihat hasil sesi miliknya sendiri."""
+        response = logged_in_client.get(f'/practice/result/{practice_session.id}')
+        assert response.status_code == 200
+
+    def test_result_other_users_session_redirects(
+        self, logged_in_client, app, second_user
+    ):
+        """User tidak boleh melihat hasil sesi milik user lain."""
+        with app.app_context():
+            other = PracticeSession(
+                user_id=second_user.id,
+                category='pidato', title='Sesi User Lain',
+                status='completed', score_total=70.0,
+                score_clarity=70, score_structure=70, score_confidence=70,
+                score_relevance=70, score_vocabulary=70, score_fluency=70,
+            )
+            db.session.add(other)
+            db.session.commit()
+            sid = other.id
+
+        response = logged_in_client.get(f'/practice/result/{sid}')
+        assert response.status_code == 302
+
+    def test_result_nonexistent_returns_404(self, logged_in_client):
+        """Result untuk sesi yang tidak ada harus 404."""
+        response = logged_in_client.get('/practice/result/99999')
+        assert response.status_code == 404
+
+
+# =============================================================================
+# GET /practice/status/<id>
+# =============================================================================
+
+class TestCheckStatus:
+
+    def test_status_requires_login(self, client, practice_session):
+        """Check status harus redirect jika belum login."""
+        response = client.get(f'/practice/status/{practice_session.id}')
+        assert response.status_code == 302
+
+    def test_status_returns_correct_status(self, logged_in_client, practice_session):
+        """Check status harus return JSON dengan field 'status' dan 'session_id'."""
+        response = logged_in_client.get(f'/practice/status/{practice_session.id}')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert 'status' in data
+        assert 'session_id' in data
+        assert data['status'] == 'completed'
+
+    def test_status_other_users_session_returns_403(
+        self, logged_in_client, app, second_user
+    ):
+        """Check status sesi milik user lain harus 403."""
+        with app.app_context():
+            other = PracticeSession(
+                user_id=second_user.id,
+                category='pidato', title='Sesi Lain',
+                status='processing',
+                score_clarity=0, score_structure=0, score_confidence=0,
+                score_relevance=0, score_vocabulary=0, score_fluency=0,
+            )
+            db.session.add(other)
+            db.session.commit()
+            sid = other.id
+
+        response = logged_in_client.get(f'/practice/status/{sid}')
+        assert response.status_code == 403
+
+    def test_status_nonexistent_returns_404(self, logged_in_client):
+        """Check status sesi yang tidak ada harus 404."""
+        response = logged_in_client.get('/practice/status/99999')
+        assert response.status_code == 404

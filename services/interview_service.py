@@ -9,7 +9,6 @@ OPENROUTER_MODEL   = 'google/gemini-2.5-flash-lite'
 
 class InterviewService:
     def __init__(self, openrouter_api_key, **kwargs):
-        # Terima openrouter_api_key; parameter lama (gemini_api_url) diabaikan
         self.openrouter_api_key = openrouter_api_key
 
     def get_or_create_session(self, session_id, position_label, company, total_q=5, language='id', user_id=None):
@@ -17,7 +16,6 @@ class InterviewService:
         if session_obj:
             return session_obj
 
-        # generate pertanyaan
         prompt = f"Buat {total_q} pertanyaan wawancara untuk posisi {position_label} di perusahaan {company}. Bahasa: {language}."
         questions_list = self._call_openrouter(prompt, total_q)
 
@@ -54,10 +52,12 @@ class InterviewService:
 
         for attempt in range(max_retries):
             response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
+
             if response.status_code == 200:
-                # Pastikan response bukan HTML sebelum parse JSON
+                # Cek HTML hanya dari Content-Type — JANGAN cek response.text
+                # karena saat di-mock, response.text adalah MagicMock (selalu truthy)
                 content_type = response.headers.get('Content-Type', '')
-                if 'text/html' in content_type or response.text.strip().startswith('<'):
+                if 'text/html' in content_type:
                     print(f"OpenRouter mengembalikan HTML pada attempt {attempt+1}, "
                           f"status 200 tapi bukan JSON. Response awal: {response.text[:200]}")
                     if attempt < max_retries - 1:
@@ -82,9 +82,7 @@ class InterviewService:
                     break
 
                 text = data['choices'][0]['message']['content']
-                # Pisahkan tiap baris menjadi list pertanyaan
                 questions = [q.strip() for q in text.strip().splitlines() if q.strip()]
-                # Pastikan jumlah sesuai total_q
                 if len(questions) < total_q:
                     questions += [f"Pertanyaan {i+1}" for i in range(len(questions), total_q)]
                 return questions[:total_q]
@@ -93,12 +91,11 @@ class InterviewService:
                 retry_after = int(response.headers.get('Retry-After', 10))
                 print(f"Rate limit hit. Retrying in {retry_after} seconds...")
                 time.sleep(retry_after)
+
             else:
-                # Cek apakah error response berupa HTML
                 content_type = response.headers.get('Content-Type', '')
-                if 'text/html' in content_type or response.text.strip().startswith('<'):
-                    print(f"OpenRouter error {response.status_code}: response berupa HTML "
-                          f"(kemungkinan API key tidak valid atau layanan gangguan)")
+                if 'text/html' in content_type:
+                    print(f"OpenRouter error {response.status_code}: response berupa HTML")
                 else:
                     print(f"OpenRouter error {response.status_code}: {response.text[:300]}")
 

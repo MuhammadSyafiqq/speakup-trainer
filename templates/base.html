@@ -18,6 +18,95 @@
 </head>
 <body>
 
+<!-- ── MOBILE OVERLAY ── -->
+<div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+<!-- ── MOBILE NAV DRAWER ── -->
+<div class="mobile-nav" id="mobile-nav" role="dialog" aria-label="Menu navigasi">
+    <div class="mobile-nav-header">
+        <a href="{{ url_for('auth.index') }}" class="mobile-nav-brand">
+            <span class="brand-name">SpeakUp</span>
+        </a>
+        <button class="mobile-nav-close" id="mobile-nav-close" aria-label="Tutup menu">✕</button>
+    </div>
+
+    {% if current_user.is_authenticated %}
+    <div class="mobile-nav-user">
+        <div class="mobile-nav-avatar">{{ current_user.username[0]|upper }}</div>
+        <div>
+            <div class="mobile-nav-username">{{ current_user.username }}</div>
+            <div class="mobile-nav-role">Member SpeakUp</div>
+        </div>
+    </div>
+
+    <div class="mobile-nav-section">Menu Utama</div>
+    <div class="mobile-nav-links">
+        <a href="{{ url_for('practice.dashboard') }}" class="{% if request.endpoint == 'practice.dashboard' %}active{% endif %}">
+            <span>Dashboard</span>
+            <span class="mobile-nav-arrow">›</span>
+        </a>
+        <a href="{{ url_for('practice.select_category') }}" class="{% if 'practice' in request.endpoint %}active{% endif %}">
+            <span>Latihan</span>
+            <span class="mobile-nav-arrow">›</span>
+        </a>
+        <a href="{{ url_for('history.history') }}" class="{% if request.endpoint == 'history.history' %}active{% endif %}">
+            <span>Riwayat</span>
+            <span class="mobile-nav-arrow">›</span>
+        </a>
+    </div>
+
+    <div class="mobile-nav-divider"></div>
+    <div class="mobile-nav-section">Pengaturan</div>
+    <div class="mobile-nav-links">
+        <div class="mobile-nav-theme">
+            <div class="mobile-nav-theme-label">
+                <span class="mobile-nav-icon">🌗</span>
+                <span>Tema Gelap</span>
+            </div>
+            <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Ganti tema">
+                <div class="toggle-track">
+                    <div class="toggle-thumb" id="toggle-thumb"></div>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <div class="mobile-nav-divider"></div>
+    <form method="POST" action="{{ url_for('auth.logout') }}">
+        <button type="submit" class="mobile-nav-logout">
+            <span></span> Keluar
+        </button>
+    </form>
+
+    {% else %}
+    <div class="mobile-nav-section">Akses</div>
+    <div class="mobile-nav-links">
+        <a href="{{ url_for('auth.login') }}">
+            <span>Masuk</span>
+            <span class="mobile-nav-arrow">›</span>
+        </a>
+        <a href="{{ url_for('auth.register') }}">
+            <span>Daftar Gratis</span>
+            <span class="mobile-nav-arrow">›</span>
+        </a>
+    </div>
+    <div class="mobile-nav-divider"></div>
+    <div class="mobile-nav-links">
+        <div class="mobile-nav-theme">
+            <div class="mobile-nav-theme-label">
+                <span class="mobile-nav-icon">🌗</span>
+                <span>Tema Gelap</span>
+            </div>
+            <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Ganti tema">
+                <div class="toggle-track">
+                    <div class="toggle-thumb" id="toggle-thumb"></div>
+                </div>
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
 <!-- Navbar -->
 <nav class="navbar">
     <div class="nav-container">
@@ -33,24 +122,20 @@
             <a href="{{ url_for('history.history') }}" class="nav-link {% if request.endpoint == 'history.history' %}active{% endif %}">Riwayat</a>
         </div>
         <div class="nav-user">
-            <!-- Dark Mode Toggle -->
-            <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Ganti tema">
+            <button class="theme-toggle" id="theme-toggle-desktop" onclick="toggleTheme()" title="Ganti tema">
                 <div class="toggle-track">
-                    <div class="toggle-thumb" id="toggle-thumb">
-                    </div>
+                    <div class="toggle-thumb" id="toggle-thumb"></div>
                 </div>
                 <span class="toggle-label" id="toggle-label">Light</span>
             </button>
             <span class="user-greeting">👋 {{ current_user.username }}</span>
-            <!-- Ganti dengan ini: -->
             <form method="POST" action="{{ url_for('auth.logout') }}" style="display:inline">
                 <button type="submit" class="btn-logout">Keluar</button>
             </form>
         </div>
         {% else %}
         <div class="nav-links">
-            <!-- Dark Mode Toggle (halaman publik) -->
-            <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Ganti tema">
+            <button class="theme-toggle" id="theme-toggle-desktop" onclick="toggleTheme()" title="Ganti tema">
                 <div class="toggle-track">
                     <div class="toggle-thumb" id="toggle-thumb"></div>
                 </div>
@@ -60,6 +145,14 @@
             <a href="{{ url_for('auth.register') }}" class="btn-primary-sm">Daftar</a>
         </div>
         {% endif %}
+
+        <!-- Hamburger: mobile only -->
+        <button class="hamburger" id="hamburger-btn"
+                aria-label="Buka menu" aria-expanded="false" aria-controls="mobile-nav">
+            <span class="hamburger-bar"></span>
+            <span class="hamburger-bar"></span>
+            <span class="hamburger-bar"></span>
+        </button>
     </div>
 </nav>
 
@@ -106,7 +199,7 @@
     <!-- Header -->
     <div class="ac-header">
         <div class="ac-header-left">
-            <div class="ac-avatar">🤖</div>
+            <div class="ac-avatar"></div>
             <div>
                 <div class="ac-name">SpeakUp AI Agent</div>
                 <div class="ac-status" id="ac-status">
@@ -124,12 +217,12 @@
     <div class="ac-chips" id="ac-chips">
         <div class="chips-label">⚡ Mulai cepat:</div>
         <div class="chips-row">
-            <button class="chip" onclick="quickPrompt('pidato')">🎤 Pidato</button>
-            <button class="chip" onclick="quickPrompt('wawancara')">💼 Wawancara</button>
-            <button class="chip" onclick="quickPrompt('presentasi')">📊 Presentasi</button>
-            <button class="chip" onclick="quickPrompt('debat')">⚖️ Debat</button>
-            <button class="chip" onclick="quickPrompt('mc')">🎭 MC</button>
-            <button class="chip" onclick="quickPrompt('storytelling')">📖 Cerita</button>
+            <button class="chip" onclick="quickPrompt('pidato')">Pidato</button>
+            <button class="chip" onclick="quickPrompt('wawancara')">Wawancara</button>
+            <button class="chip" onclick="quickPrompt('presentasi')">Presentasi</button>
+            <button class="chip" onclick="quickPrompt('debat')">Debat</button>
+            <button class="chip" onclick="quickPrompt('mc')">MC</button>
+            <button class="chip" onclick="quickPrompt('storytelling')">Cerita</button>
         </div>
     </div>
 
@@ -137,17 +230,17 @@
     <div class="ac-messages" id="ac-messages">
         <!-- Pesan selamat datang -->
         <div class="ac-msg bot">
-            <div class="msg-avatar">🤖</div>
+            <div class="msg-avatar"></div>
             <div class="msg-bubble">
                 <p>Halo <strong>{{ current_user.username }}</strong>! 👋</p>
                 <p>Saya AI Agent SpeakUp siap membantu kamu membuat naskah untuk:</p>
                 <ul>
-                    <li>🎤 Pidato formal / sambutan</li>
-                    <li>💼 Jawaban wawancara kerja</li>
-                    <li>📊 Skrip presentasi</li>
-                    <li>⚖️ Argumen debat</li>
-                    <li>🎭 Teks MC / pembawa acara</li>
-                    <li>📖 Naskah storytelling</li>
+                    <li>Pidato formal / sambutan</li>
+                    <li>Jawaban wawancara kerja</li>
+                    <li>Skrip presentasi</li>
+                    <li>Argumen debat</li>
+                    <li>Teks MC / pembawa acara</li>
+                    <li>Naskah storytelling</li>
                 </ul>
                 <p>Pilih kategori di atas atau ceritakan apa yang kamu butuhkan! 😊</p>
                 <div class="msg-time">Sekarang</div>
